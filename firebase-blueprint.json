@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "users": {
+      "title": "User",
+      "description": "User profile authenticated with Google Sign-In",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "preferredTheme": { "type": "string", "maxLength": 64 },
+        "preferredQuality": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "email"]
+    },
+    "user_libraries": {
+      "title": "UserLibrary",
+      "description": "Stores user liked tracks, playback history and preferences",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "likedTrackIds": { "type": "array" },
+        "history": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId"]
+    },
+    "playlists": {
+      "title": "Playlist",
+      "description": "Custom playlist created by user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 500 },
+        "tracks": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "name"]
+    },
+    "downloads": {
+      "title": "DownloadRecord",
+      "description": "Offline downloaded songs or videos metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 256 },
+        "artist": { "type": "string", "maxLength": 256 },
+        "mediaType": { "type": "string", "maxLength": 32 },
+        "quality": { "type": "string", "maxLength": 64 },
+        "downloadedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/users" },
+      "description": "Stores private user account metadata"
+    },
+    "/user_libraries/{userId}": {
+      "schema": { "$ref": "#/entities/user_libraries" },
+      "description": "Stores user's saved library, liked tracks, and history"
+    },
+    "/playlists/{playlistId}": {
+      "schema": { "$ref": "#/entities/playlists" },
+      "description": "Stores user created playlists"
+    },
+    "/downloads/{downloadId}": {
+      "schema": { "$ref": "#/entities/downloads" },
+      "description": "Stores user offline download activity and saved items"
+    }
+  }
+}
