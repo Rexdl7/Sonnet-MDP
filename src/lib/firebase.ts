@@ -1,39 +1,63 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { 
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, 
+  getRedirectResult, signOut 
+} from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+// Safely load firebase-applet-config.json if present (eager glob avoids Vite pre-transform error when file is deleted)
+let configFromJson: Record<string, any> = {};
+try {
+  const configs = import.meta.glob('/firebase-applet-config.json', { eager: true });
+  const keys = Object.keys(configs);
+  if (keys.length > 0) {
+    const mod = configs[keys[0]] as any;
+    configFromJson = mod?.default || mod || {};
+  }
+} catch {
+  // Safe fallback when file is absent
+}
 
-/**
- * Dynamic Firebase Configuration
- * Reads all project credentials dynamically from environment variables (import.meta.env)
- * instead of importing from a static JSON file.
- */
 const env = import.meta.env;
 
 export const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY || '',
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: env.VITE_FIREBASE_APP_ID || '',
-  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID || '',
+  apiKey: configFromJson.apiKey || env.VITE_FIREBASE_API_KEY || '',
+  authDomain: configFromJson.authDomain || env.VITE_FIREBASE_AUTH_DOMAIN || '',
+  projectId: configFromJson.projectId || env.VITE_FIREBASE_PROJECT_ID || '',
+  storageBucket: configFromJson.storageBucket || env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: configFromJson.messagingSenderId || env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: configFromJson.appId || env.VITE_FIREBASE_APP_ID || '',
+  measurementId: configFromJson.measurementId || env.VITE_FIREBASE_MEASUREMENT_ID || '',
   firestoreDatabaseId: env.VITE_FIREBASE_DATABASE_ID || '',
 };
 
 // Initialize or retrieve Firebase app instance dynamically
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// CRITICAL: Initialize Firestore using the dynamic database ID if provided, otherwise default
 export const db = firebaseConfig.firestoreDatabaseId
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
 
 export const auth = getAuth(app);
 
+// Configure Google OAuth provider with YouTube Readonly access
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/youtube.readonly');
+googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
+googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
 googleProvider.setCustomParameters({
-  prompt: 'select_account',
+  prompt: 'consent select_account',
 });
+
+// In-memory access token cache for Google Workspace & YouTube Data API calls
+let cachedAccessToken: string | null = null;
+
+export const setCachedAccessToken = (token: string | null) => {
+  cachedAccessToken = token;
+};
+
+export const getAccessToken = async (): Promise<string | null> => {
+  return cachedAccessToken;
+};
 
 export enum OperationType {
   CREATE = 'create',
@@ -86,15 +110,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 export async function testConnection(): Promise<boolean> {
   try {
     if (!firebaseConfig.apiKey) {
-      console.warn('Firebase configuration missing: VITE_FIREBASE_API_KEY is not set in environment variables.');
       return false;
     }
     await getDocFromServer(doc(db, 'test', 'connection'));
     return true;
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client offline, operating with local offline cache.');
-    }
     return false;
   }
 }

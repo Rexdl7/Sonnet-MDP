@@ -14,7 +14,7 @@ interface MobileTabBarProps {
 export const MobileTabBar: React.FC<MobileTabBarProps> = ({
   activeView,
   onSelectView,
-  accentColorHex = '#FA2D48',
+  accentColorHex = '#D97736',
   theme,
 }) => {
   const tabs = [

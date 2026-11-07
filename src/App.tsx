@@ -15,6 +15,8 @@ import {
   saveUserPlaylist 
 } from './services/firebaseService';
 
+import { generateUpNextRadio } from './services/youtubeOAuthService';
+
 // Components
 import { Sidebar } from './components/layout/Sidebar';
 import { MacOSWindowHeader } from './components/layout/MacOSWindowHeader';
@@ -29,6 +31,7 @@ import { YouTubePlayer } from './components/player/YouTubePlayer';
 import { DownloadTrackModal } from './components/common/DownloadTrackModal';
 import { SongCreditsModal } from './components/common/SongCreditsModal';
 import { PWAInstallModal } from './components/common/PWAInstallModal';
+import { SonnetmdpAuthModal } from './components/common/SonnetmdpAuthModal';
 import { THEMES } from './utils/themeConfig';
 
 import { AnimatePresence, motion } from 'framer-motion';
@@ -46,13 +49,13 @@ export default function App() {
 
   // App & Audio Settings
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const activeTheme = THEMES[settings.appTheme] || THEMES['youtube-music'];
+  const activeTheme = THEMES[settings.appTheme] || THEMES['natural-studio'] || THEMES['youtube-music'];
   const accentColorHex = activeTheme.colors.accent;
 
   // Track download & credits modal states
   const [downloadTrack, setDownloadTrack] = useState<Track | null>(null);
   const [creditsTrack, setCreditsTrack] = useState<Track | null>(null);
-  const [historyQueue, setHistoryQueue] = useState<Track[]>([]);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   // Audio Quality Badge display
   const qualityBadge = 
@@ -62,11 +65,11 @@ export default function App() {
     settings.listeningQuality === 'saver' ? 'ECO 96K' :
     `CUSTOM ${settings.customBitrate}K`;
 
-  // Playback state
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(INITIAL_TRACKS[0]);
+  // Playback state (boots in clean zero-state without preloaded songs)
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const [duration, setDuration] = useState<number>(INITIAL_TRACKS[0].duration || 204);
+  const [duration, setDuration] = useState<number>(180);
   const [volume, setVolume] = useState<number>(0.85);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [repeatMode, setRepeatMode] = useState<PlaybackRepeatMode>('all');
@@ -81,13 +84,11 @@ export default function App() {
   const [radioQueue, setRadioQueue] = useState<Track[]>([]);
   const [autoplayRadio, setAutoplayRadio] = useState<boolean>(true);
   const [isLoadingRadio, setIsLoadingRadio] = useState<boolean>(false);
-  const playedTrackIdsRef = useRef<Set<string>>(new Set([INITIAL_TRACKS[0].id]));
+  const playedTrackIdsRef = useRef<Set<string>>(new Set());
 
   // Lists & Collections
   const [localTracks, setLocalTracks] = useState<Track[]>([]);
-  const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(
-    () => new Set(['yt-fHI8X4OXluQ', 'yt-yKNxeF4KMsY'])
-  );
+  const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
   const [playlists, setPlaylists] = useState<Playlist[]>(INITIAL_PLAYLISTS);
 
   // Navigation & Drawer states
@@ -103,8 +104,17 @@ export default function App() {
   const lastBackPressRef = useRef<number>(0);
   const isPoppingStateRef = useRef<boolean>(false);
 
-  // Firebase Authentication & Cloud Sync
-  const { currentUser, loading: authLoading, loginWithGoogle, logout } = useFirebaseAuth();
+  // Firebase Authentication & YouTube Cloud Sync
+  const { 
+    currentUser, 
+    youtubeLikedTracks, 
+    isYouTubeSynced, 
+    listeningHistory,
+    recordTrackListen,
+    loading: authLoading, 
+    loginWithGoogle, 
+    logout 
+  } = useFirebaseAuth();
 
   // In-App Offline Media Storage
   const [offlineItems, setOfflineItems] = useState<OfflineStoredItem[]>(() => {
@@ -136,12 +146,9 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
 
-    const unsubLibrary = subscribeUserLibrary(currentUser.uid, ({ likedTrackIds: remoteLikes, history: remoteHistory }) => {
+    const unsubLibrary = subscribeUserLibrary(currentUser.uid, ({ likedTrackIds: remoteLikes }) => {
       if (remoteLikes && remoteLikes.length > 0) {
         setLikedTrackIds(new Set(remoteLikes));
-      }
-      if (remoteHistory && remoteHistory.length > 0) {
-        setHistoryQueue(remoteHistory);
       }
     });
 
@@ -302,19 +309,32 @@ export default function App() {
     setDuration(track.duration || 180);
     setIsPlaying(true);
 
-    // Track played history to avoid repeated songs & display in session history
+    // Track played history
     playedTrackIdsRef.current.add(track.id);
-    setHistoryQueue((prev) => [track, ...prev.filter((t) => t.id !== track.id)]);
+    if (recordTrackListen) {
+      recordTrackListen(track);
+    }
 
     const isYT = track.source === 'youtube' || !!track.youtubeId;
 
     if (isYT) {
-      // Pause local audio
+      // Pause local audio element when playing YouTube track
       if (audioRef.current && !audioRef.current.paused) {
         audioRef.current.pause();
       }
-      // Populate infinite similar-vibe radio queue
-      fetchSimilarVibeTracks(track);
+
+      // Generate continuous Up Next radio queue matching the seed track
+      generateUpNextRadio(track)
+        .then((upNextTracks) => {
+          if (upNextTracks.length > 0) {
+            setRadioQueue(upNextTracks);
+          } else {
+            fetchSimilarVibeTracks(track);
+          }
+        })
+        .catch(() => {
+          fetchSimilarVibeTracks(track);
+        });
     } else {
       // Local audio playback
       if (audioRef.current) {
@@ -326,7 +346,7 @@ export default function App() {
           .catch((err) => console.warn('Track play error:', err));
       }
     }
-  }, [initAudioDsp, fetchSimilarVibeTracks]);
+  }, [initAudioDsp, recordTrackListen, fetchSimilarVibeTracks]);
 
   // Handle Play/Pause
   const togglePlay = useCallback(() => {
@@ -604,6 +624,9 @@ export default function App() {
           }
         }}
         onEnded={handleTrackEnded}
+        onYTError={(failedId) => {
+          console.warn('YouTube embed restricted for video:', failedId);
+        }}
         mode={activeView === 'video' ? 'theatre' : videoMode}
         onModeChange={(newMode) => {
           if (newMode === 'theatre') {
@@ -660,6 +683,8 @@ export default function App() {
               navigateToView('search');
             }
           }}
+          tracks={[...INITIAL_TRACKS, ...youtubeLikedTracks, ...localTracks]}
+          onPlayTrack={playTrack}
           onOpenAppModal={() => {
             setIsPwaModalOpen(true);
             window.history.pushState({ view: activeView, modal: 'pwa' }, '');
@@ -668,6 +693,7 @@ export default function App() {
           authLoading={authLoading}
           onLogin={loginWithGoogle}
           onLogout={logout}
+          likedCount={youtubeLikedTracks.length}
         />
 
         {/* Viewport Content Stage with Framer Motion Fluid Tab Transitions */}
@@ -726,6 +752,11 @@ export default function App() {
                     onSwitchView={navigateToView}
                     accentColorHex={accentColorHex}
                     theme={activeTheme}
+                    user={currentUser}
+                    historyQueue={listeningHistory}
+                    youtubeLikedTracks={youtubeLikedTracks}
+                    isYouTubeSynced={isYouTubeSynced}
+                    onOpenAuthModal={() => setIsAuthModalOpen(true)}
                   />
                 )}
 
@@ -816,6 +847,9 @@ export default function App() {
                     accentColorHex={accentColorHex}
                     offlineItems={offlineItems}
                     onRemoveOfflineItem={handleRemoveOfflineItem}
+                    youtubeLikedTracks={youtubeLikedTracks}
+                    listeningHistory={listeningHistory}
+                    theme={activeTheme}
                   />
                 )}
               </motion.div>
@@ -945,7 +979,7 @@ export default function App() {
         onClose={() => setIsQueueOpen(false)}
         userQueue={userQueue}
         radioQueue={radioQueue}
-        historyQueue={historyQueue}
+        historyQueue={listeningHistory}
         autoplayRadio={autoplayRadio}
         onToggleAutoplayRadio={() => setAutoplayRadio((prev) => !prev)}
         onRefreshRadio={() => currentTrack && fetchSimilarVibeTracks(currentTrack)}
@@ -982,6 +1016,17 @@ export default function App() {
         isOpen={isPwaModalOpen}
         onClose={() => setIsPwaModalOpen(false)}
         accentColorHex={accentColorHex}
+      />
+
+      {/* YouTube Google Sync Modal */}
+      <SonnetmdpAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        onLogin={loginWithGoogle}
+        onLogout={logout}
+        accentColorHex={accentColorHex}
+        likedCount={youtubeLikedTracks.length}
       />
 
       {/* Mobile Back Button Toast Indicator */}

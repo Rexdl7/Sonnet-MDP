@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Track, Playlist, OfflineStoredItem } from '../../types/media';
 import { INITIAL_TRACKS } from '../../data/curatedTracks';
 import { formatTime } from '../../utils/lyricsParser';
+import { ThemeConfig } from '../../utils/themeConfig';
 import { 
   FolderPlus, Upload, Music, Heart, Plus, 
   Trash2, Play, HardDrive, Disc, Check, Sparkles, Film, Download
@@ -20,6 +21,9 @@ interface LibraryViewProps {
   accentColorHex?: string;
   offlineItems?: OfflineStoredItem[];
   onRemoveOfflineItem?: (id: string) => void;
+  youtubeLikedTracks?: Track[];
+  listeningHistory?: Track[];
+  theme?: ThemeConfig;
 }
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
@@ -32,13 +36,22 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   playlists,
   onCreatePlaylist,
   currentTrackId,
-  accentColorHex = '#FA2D48',
+  accentColorHex = '#D97736',
   offlineItems = [],
   onRemoveOfflineItem,
+  youtubeLikedTracks = [],
+  listeningHistory = [],
+  theme,
 }) => {
+  const isLight = theme?.category === 'light';
+  const bgColor = theme?.colors.bg || (isLight ? '#F8FAFC' : '#141416');
+  const surfaceColor = theme?.colors.surface || (isLight ? '#FFFFFF' : '#1E1E23');
+  const textColor = theme?.colors.text || (isLight ? '#0F172A' : '#F2EFE9');
+  const textMuted = theme?.colors.textMuted || (isLight ? '#64748B' : '#A09D96');
+  const borderColor = theme?.colors.border || (isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'local' | 'favorites' | 'playlists' | 'downloads'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'liked' | 'history' | 'local' | 'playlists' | 'downloads'>('all');
   const [newPlaylistModal, setNewPlaylistModal] = useState<boolean>(false);
   const [playlistTitle, setPlaylistTitle] = useState<string>('');
   const [playlistDesc, setPlaylistDesc] = useState<string>('');
@@ -93,27 +106,43 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     setNewPlaylistModal(false);
   };
 
-  const allTracks = [...INITIAL_TRACKS, ...localTracks];
-  const likedTracks = allTracks.filter((t) => likedTrackIds.has(t.id));
+  // Aggregate all tracks cleanly
+  const combinedMap = new Map<string, Track>();
+  [...youtubeLikedTracks, ...listeningHistory, ...localTracks].forEach((t) => {
+    if (t && t.id && !combinedMap.has(t.id)) {
+      combinedMap.set(t.id, t);
+    }
+  });
+  const allTracks = Array.from(combinedMap.values());
+
+  // Aggregate liked tracks (from YouTube API sync and in-app likes)
+  const likedMap = new Map<string, Track>();
+  youtubeLikedTracks.forEach((t) => likedMap.set(t.id, t));
+  allTracks.filter((t) => likedTrackIds.has(t.id)).forEach((t) => likedMap.set(t.id, t));
+  const likedTracks = Array.from(likedMap.values());
 
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-8 space-y-6 select-none pb-36 md:pb-12">
+    <div 
+      className="h-full overflow-y-auto p-4 md:p-8 space-y-6 select-none pb-36 md:pb-12 font-sans transition-colors duration-300"
+      style={{ backgroundColor: bgColor, color: textColor }}
+    >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b" style={{ borderColor }}>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <HardDrive className="w-6 h-6 text-[#FA2D48]" style={{ color: accentColorHex }} />
-            Audio Library & Playlists
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2" style={{ color: textColor }}>
+            <HardDrive className="w-6 h-6" style={{ color: accentColorHex }} />
+            Your Music Library
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Import personal audio files with instant hardware decoding, or curate custom playlists.
+          <p className="text-xs mt-0.5" style={{ color: textMuted }}>
+            Your synced YouTube Music liked tracks, listening history, custom playlists, and local files.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setNewPlaylistModal(true)}
-            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-white transition-colors flex items-center gap-2 border border-white/10 shadow-sm"
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors flex items-center gap-2 shadow-sm"
+            style={{ backgroundColor: surfaceColor, borderColor, color: textColor }}
           >
             <FolderPlus className="w-4 h-4" />
             <span>New Playlist</span>
@@ -135,7 +164,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               boxShadow: `0 4px 14px ${accentColorHex}40`,
             }}
           >
-            <Upload className="w-4 h-4" />
+            <Upload className="w-4 h-4 text-white" />
             <span>Import Audio Files</span>
           </button>
         </div>
@@ -147,51 +176,46 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`cursor-pointer border-2 border-dashed rounded-3xl p-6 md:p-8 text-center transition-all flex flex-col items-center justify-center backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] ${
-          isDragging
-            ? 'scale-[1.01]'
-            : 'border-white/15 hover:border-white/30 bg-slate-900/40'
-        }`}
+        className="cursor-pointer border-2 border-dashed rounded-3xl p-6 md:p-8 text-center transition-all flex flex-col items-center justify-center shadow-sm"
         style={{
-          borderColor: isDragging ? accentColorHex : undefined,
-          backgroundColor: isDragging ? `${accentColorHex}15` : undefined,
+          borderColor: isDragging ? accentColorHex : borderColor,
+          backgroundColor: isDragging ? `${accentColorHex}15` : surfaceColor,
         }}
       >
         <div
-          className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-3 text-[#FA2D48] shadow-inner"
-          style={{ color: accentColorHex }}
+          className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3 shadow-inner"
+          style={{ backgroundColor: `${accentColorHex}15`, color: accentColorHex }}
         >
           <Upload className="w-6 h-6" />
         </div>
-        <h3 className="text-sm font-semibold text-white">
+        <h3 className="text-sm font-semibold" style={{ color: textColor }}>
           Drop audio files here to import
         </h3>
-        <p className="text-xs text-slate-400 mt-1 max-w-md">
+        <p className="text-xs mt-1 max-w-md" style={{ color: textMuted }}>
           Supports MP3, FLAC, WAV, AAC, and OGG with zero cloud uploads. Plays 100% locally through hardware DSP.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         {[
-          { id: 'all', label: `All Audio (${allTracks.length})` },
-          { id: 'local', label: `Imported Local (${localTracks.length})` },
-          { id: 'favorites', label: `Loved Tracks (${likedTracks.length})` },
+          { id: 'all', label: `All Music (${allTracks.length})` },
+          { id: 'liked', label: `Liked Songs (${likedTracks.length})` },
+          { id: 'history', label: `Listening History (${listeningHistory.length})` },
+          { id: 'local', label: `Local Files (${localTracks.length})` },
           { id: 'playlists', label: `Playlists (${playlists.length})` },
-          { id: 'downloads', label: `In-App Downloads (${offlineItems.length})` },
+          { id: 'downloads', label: `Downloads (${offlineItems.length})` },
         ].map((tab) => {
           const isSelected = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                isSelected
-                  ? 'text-white shadow-md font-bold'
-                  : 'bg-white/5 text-slate-400 hover:bg-white/10'
-              }`}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border"
               style={{
-                backgroundColor: isSelected ? accentColorHex : undefined,
+                backgroundColor: isSelected ? accentColorHex : surfaceColor,
+                color: isSelected ? '#FFFFFF' : textMuted,
+                borderColor: isSelected ? accentColorHex : borderColor,
                 boxShadow: isSelected ? `0 4px 14px ${accentColorHex}40` : undefined,
               }}
             >
@@ -207,21 +231,23 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           {playlists.map((pl) => (
             <div
               key={pl.id}
-              className="group p-4 rounded-3xl bg-slate-900/40 backdrop-blur-2xl border border-white/10 hover:border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] transition-all flex flex-col justify-between"
+              className="group p-4 rounded-3xl border shadow-sm transition-all flex flex-col justify-between"
+              style={{ backgroundColor: surfaceColor, borderColor }}
             >
               <div>
                 <img
                   src={pl.coverUrl}
                   alt={pl.title}
-                  className="w-full aspect-square rounded-2xl object-cover mb-3 shadow-md border border-white/10"
+                  className="w-full aspect-square rounded-2xl object-cover mb-3 shadow-md border"
+                  style={{ borderColor }}
                 />
-                <h4 className="text-sm font-bold text-white truncate">{pl.title || pl.name || 'Playlist'}</h4>
-                <p className="text-xs text-slate-400 mt-1 line-clamp-2">{pl.description}</p>
+                <h4 className="text-sm font-bold truncate" style={{ color: textColor }}>{pl.title || pl.name || 'Playlist'}</h4>
+                <p className="text-xs mt-1 line-clamp-2" style={{ color: textMuted }}>{pl.description}</p>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-slate-500 font-mono mt-4 pt-2 border-t border-white/5">
+              <div className="flex items-center justify-between text-xs font-mono mt-4 pt-2 border-t" style={{ borderColor, color: textMuted }}>
                 <span>{(pl.trackIds || pl.tracks || []).length} tracks</span>
-                <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                <span className="text-[10px] uppercase tracking-wider">
                   {pl.isCustom ? 'Custom Mix' : 'Curated'}
                 </span>
               </div>
@@ -232,21 +258,23 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
       {/* Track List */}
       {activeTab !== 'playlists' && (
-        <div className="space-y-1.5 bg-slate-900/40 backdrop-blur-2xl border border-white/10 rounded-3xl p-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
+        <div className="space-y-1.5 border rounded-3xl p-3 shadow-sm" style={{ backgroundColor: surfaceColor, borderColor }}>
           {(() => {
             const listToDisplay =
               activeTab === 'local'
                 ? localTracks
-                : activeTab === 'favorites'
+                : activeTab === 'liked'
                 ? likedTracks
+                : activeTab === 'history'
+                ? listeningHistory
                 : allTracks;
 
             if (listToDisplay.length === 0) {
               return (
-                <div className="py-16 text-center text-slate-500">
-                  <Music className="w-12 h-12 mx-auto mb-2 text-slate-600 stroke-1" />
-                  <p className="text-sm font-medium text-slate-300">No tracks in this view</p>
-                  <p className="text-xs mt-1">Import local audio files or heart any song from explore.</p>
+                <div className="py-16 text-center" style={{ color: textMuted }}>
+                  <Music className="w-12 h-12 mx-auto mb-2 stroke-1" style={{ color: textMuted }} />
+                  <p className="text-sm font-medium" style={{ color: textColor }}>No tracks in this view</p>
+                  <p className="text-xs mt-1">Search any song or connect your Google account to sync your YouTube Music library.</p>
                 </div>
               );
             }
@@ -259,38 +287,35 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 <div
                   key={track.id}
                   onClick={() => onPlayTrack(track)}
-                  className={`group flex items-center justify-between gap-3.5 p-3 rounded-2xl transition-all cursor-pointer border ${
-                    isPlayingCurrent
-                      ? 'border-white/20 shadow-md'
-                      : 'bg-white/[0.01] hover:bg-white/[0.06] border-transparent'
-                  }`}
+                  className="group flex items-center justify-between gap-3.5 p-3 rounded-2xl transition-all cursor-pointer border"
                   style={{
-                    backgroundColor: isPlayingCurrent ? `${accentColorHex}15` : undefined,
-                    borderColor: isPlayingCurrent ? `${accentColorHex}40` : undefined,
+                    backgroundColor: isPlayingCurrent ? `${accentColorHex}15` : 'transparent',
+                    borderColor: isPlayingCurrent ? `${accentColorHex}40` : 'transparent',
                   }}
                 >
                   <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                    <span className="w-6 text-center text-xs font-mono tabular-nums text-slate-500 shrink-0">
+                    <span className="w-6 text-center text-xs font-mono tabular-nums shrink-0" style={{ color: textMuted }}>
                       {idx + 1}
                     </span>
 
                     <img
                       src={track.thumbnailUrl}
                       alt={track.title}
-                      className="w-10 h-10 rounded-xl object-cover shadow-sm shrink-0 border border-white/10"
+                      className="w-10 h-10 rounded-xl object-cover shadow-sm shrink-0 border"
+                      style={{ borderColor }}
                     />
 
                     <div className="min-w-0 flex-1">
                       <h4
-                        className="text-xs sm:text-sm font-semibold truncate text-white"
-                        style={{ color: isPlayingCurrent ? accentColorHex : undefined }}
+                        className="text-xs sm:text-sm font-semibold truncate"
+                        style={{ color: isPlayingCurrent ? accentColorHex : textColor }}
                       >
                         {track.title}
                       </h4>
-                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400 truncate mt-0.5">
+                      <div className="flex items-center gap-1.5 text-[11px] truncate mt-0.5" style={{ color: textMuted }}>
                         <span className="truncate">{track.artist}</span>
                         <span>·</span>
-                        <span className="truncate text-slate-500">{track.album}</span>
+                        <span className="truncate">{track.album}</span>
                       </div>
                     </div>
                   </div>

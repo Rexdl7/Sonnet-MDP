@@ -1,6 +1,7 @@
 export type AppThemeId = 
-  | 'apple-music'
+  | 'natural-studio'
   | 'youtube-music'
+  | 'apple-music'
   | 'spotify'
   | 'darcula'
   | 'red-black'
@@ -32,6 +33,27 @@ export interface ThemeConfig {
 }
 
 export const THEMES: Record<AppThemeId, ThemeConfig> = {
+  'natural-studio': {
+    id: 'natural-studio',
+    name: 'Warm Natural Studio',
+    category: 'dark',
+    description: 'Organic warm dark studio with matte charcoal, acoustic ambient tones, and soft copper accent',
+    badge: 'Natural',
+    colors: {
+      bg: '#141416',
+      surface: '#1E1E23',
+      surfaceHover: '#28282F',
+      surfaceActive: '#33333C',
+      border: 'rgba(255, 255, 255, 0.08)',
+      accent: '#D97736',
+      accentHover: '#E28B4E',
+      text: '#F2EFE9',
+      textMuted: '#A09D96',
+      textSubtle: '#6E6B65',
+      glassBlur: 'backdrop-blur-xl',
+      shadow: '0 12px 32px rgba(0,0,0,0.45)',
+    },
+  },
   'apple-music': {
     id: 'apple-music',
     name: 'Apple Music Glass',

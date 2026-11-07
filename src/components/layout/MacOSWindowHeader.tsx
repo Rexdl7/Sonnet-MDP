@@ -3,10 +3,11 @@ import { ActiveView, Track, UserAuthProfile } from '../../types/media';
 import { ThemeConfig } from '../../utils/themeConfig';
 import { SonnetLogo } from '../common/SonnetLogo';
 import { GoogleAuthButton } from '../common/GoogleAuthButton';
+import { INITIAL_TRACKS } from '../../data/curatedTracks';
 import { 
   Search, Mic2, ListMusic, Maximize, Settings, 
   X, ChevronLeft, ChevronRight, Film, Youtube, Disc3,
-  Smartphone
+  Smartphone, Play
 } from 'lucide-react';
 
 interface MacOSWindowHeaderProps {
@@ -22,11 +23,14 @@ interface MacOSWindowHeaderProps {
   theme?: ThemeConfig;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
+  tracks?: Track[];
+  onPlayTrack?: (track: Track) => void;
   onOpenAppModal?: () => void;
   user?: UserAuthProfile | null;
   authLoading?: boolean;
   onLogin?: () => Promise<any>;
   onLogout?: () => Promise<void>;
+  likedCount?: number;
 }
 
 export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
@@ -38,15 +42,18 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
   onToggleQueue,
   isQueueOpen,
   queueCount,
-  accentColorHex = '#FF0000',
+  accentColorHex = '#D97736',
   theme,
   searchQuery = '',
   onSearchChange,
+  tracks = INITIAL_TRACKS,
+  onPlayTrack,
   onOpenAppModal,
   user = null,
   authLoading = false,
   onLogin,
   onLogout,
+  likedCount = 0,
 }) => {
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
   const themeId = theme?.id || 'youtube-music';
@@ -69,9 +76,17 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
     }
   };
 
+  const matchingTracks = searchQuery.trim().length > 0
+    ? tracks.filter(t => 
+        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.genre && t.genre.toLowerCase().includes(searchQuery.toLowerCase()))
+      ).slice(0, 5)
+    : [];
+
   return (
     <header 
-      className="h-14 px-3 md:px-6 flex items-center justify-between shrink-0 select-none z-30 transition-colors duration-300"
+      className="h-14 px-3 md:px-6 flex items-center justify-between shrink-0 select-none z-30 transition-colors duration-300 relative"
       style={{
         backgroundColor: theme?.colors.surface || 'rgba(15, 23, 42, 0.7)',
         borderColor: theme?.colors.border || 'rgba(255, 255, 255, 0.1)',
@@ -130,8 +145,8 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
         )}
       </div>
 
-      {/* Center: Sleek Unified YouTube Music Search Bar */}
-      <div className="flex-1 max-w-2xl mx-3 md:mx-6">
+      {/* Center: Sleek Unified Search Bar with Instant Autocomplete Dropdown */}
+      <div className="flex-1 max-w-2xl mx-3 md:mx-6 relative">
         <form 
           onSubmit={(e) => {
             e.preventDefault();
@@ -139,10 +154,9 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
               onSelectView('search');
             }
           }}
-          className="relative flex items-center h-10 rounded-full transition-all duration-200 bg-[#212121] border border-white/10 hover:border-white/20"
+          className="relative flex items-center h-10 rounded-full transition-all duration-200 bg-[#1E1E23] border border-white/10 hover:border-white/20"
           style={{
             borderColor: isSearchFocused ? accentColorHex : undefined,
-            boxShadow: isSearchFocused ? `0 0 16px ${accentColorHex}30` : undefined,
           }}
         >
           <Search className="w-4 h-4 text-slate-400 ml-4 shrink-0" />
@@ -156,7 +170,10 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
                 onSelectView('search');
               }
             }}
-            onBlur={() => setIsSearchFocused(false)}
+            onBlur={() => {
+              // Delay blur slightly so click on autocomplete dropdown items registers
+              setTimeout(() => setIsSearchFocused(false), 200);
+            }}
             placeholder="Search songs, albums, artists, podcasts..."
             className="w-full py-2 px-3 text-sm bg-transparent outline-none text-white placeholder-slate-400"
             style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}
@@ -177,11 +194,44 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
             ⌘K
           </kbd>
         </form>
+
+        {/* Instant Live Autocomplete Dropdown with Quick Play Buttons */}
+        {isSearchFocused && searchQuery.trim().length > 0 && matchingTracks.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-2 p-2 rounded-2xl bg-[#121216]/95 backdrop-blur-2xl border border-white/15 shadow-2xl z-50 space-y-1">
+            <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Instant Quick Play ({matchingTracks.length})
+            </div>
+            {matchingTracks.map((track) => (
+              <div
+                key={track.id}
+                onMouseDown={() => {
+                  if (onPlayTrack) onPlayTrack(track);
+                  if (onSearchChange) onSearchChange('');
+                  setIsSearchFocused(false);
+                }}
+                className="flex items-center justify-between p-2 rounded-xl hover:bg-white/10 cursor-pointer transition-colors group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                  <img src={track.thumbnailUrl} alt={track.title} className="w-9 h-9 rounded-lg object-cover shrink-0 bg-neutral-900" />
+                  <div className="min-w-0">
+                    <h5 className="text-xs font-bold text-white truncate group-hover:text-red-400 transition-colors">
+                      {track.title}
+                    </h5>
+                    <p className="text-[10px] text-slate-400 truncate">{track.artist}</p>
+                  </div>
+                </div>
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity shrink-0 shadow-md" style={{ backgroundColor: accentColorHex }}>
+                  <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Right: Quick Action Controls */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        {/* Watch Video Mode Button (Dedicated YouTube Video Section on tablet/desktop) */}
+        {/* Watch Video Mode Button */}
         <button
           onClick={() => onSelectView('video')}
           className={`hidden sm:flex px-3 py-1.5 rounded-full text-xs font-bold items-center gap-1.5 transition-all ${
@@ -195,7 +245,7 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
           <span>Videos</span>
         </button>
 
-        {/* Mobile App & APK Install Button (Desktop/Tablet) */}
+        {/* Mobile App & APK Install Button */}
         {onOpenAppModal && (
           <button
             onClick={onOpenAppModal}
@@ -207,7 +257,7 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
           </button>
         )}
 
-        {/* Lyrics Button (Desktop) */}
+        {/* Lyrics Button */}
         <button
           onClick={onToggleLyrics}
           className={`hidden md:flex p-2 rounded-xl text-xs items-center gap-1.5 transition-colors ${
@@ -224,7 +274,7 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
           <span className="font-medium">Lyrics</span>
         </button>
 
-        {/* Up Next Queue Button (Tablet/Desktop) */}
+        {/* Up Next Queue Button */}
         <button
           onClick={onToggleQueue}
           className={`hidden sm:flex p-2 rounded-xl text-xs items-center gap-1.5 transition-colors ${
@@ -253,6 +303,7 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
             onLogin={onLogin}
             onLogout={onLogout}
             accentColorHex={accentColorHex}
+            likedCount={likedCount}
           />
         )}
 

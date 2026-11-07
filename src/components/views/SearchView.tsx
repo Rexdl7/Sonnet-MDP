@@ -36,7 +36,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
   currentTrackId,
   likedTrackIds,
   onToggleLike,
-  accentColorHex = '#FF0000',
+  accentColorHex = '#D97736',
   query: externalQuery,
   onQueryChange,
   theme,

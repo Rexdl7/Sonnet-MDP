@@ -35,7 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   playlists,
   likedCount,
   localCount,
-  accentColorHex = '#FF0000',
+  accentColorHex = '#D97736',
   theme,
 }) => {
   const isLight = theme?.category === 'light';

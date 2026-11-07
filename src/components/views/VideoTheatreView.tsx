@@ -9,6 +9,7 @@ import { Track, OfflineStoredItem } from '../../types/media';
 import { formatTime } from '../../utils/lyricsParser';
 import { DownloadModal } from '../common/DownloadModal';
 import { AmbientArtworkGlowCanvas } from '../player/AmbientArtworkGlowCanvas';
+import { CustomScrubber } from '../common/CustomScrubber';
 
 interface VideoTheatreViewProps {
   currentTrack: Track | null;
@@ -205,6 +206,19 @@ export const VideoTheatreView: React.FC<VideoTheatreViewProps> = ({
                 className="w-full h-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
+              />
+            </div>
+
+            {/* Custom Video Progress Scrubber */}
+            <div className="mt-2 px-1">
+              <CustomScrubber
+                currentTime={currentTime}
+                duration={duration}
+                onSeek={onSeek}
+                accentColorHex="#FF0000"
+                trackBgColor="rgba(255, 255, 255, 0.15)"
+                trackHeight="normal"
+                showTimeTooltips={true}
               />
             </div>
           </div>

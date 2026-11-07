@@ -10,6 +10,7 @@ import {
 
 import { ThemeConfig } from '../../utils/themeConfig';
 import { motion } from 'framer-motion';
+import { CustomScrubber } from '../common/CustomScrubber';
 
 interface FloatingPlayerBarProps {
   currentTrack: Track | null;
@@ -73,7 +74,7 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
   onOpenCredits,
   qualityBadge = 'LOSSLESS 24-BIT',
   isVideoActive,
-  accentColorHex = '#FF0000',
+  accentColorHex = '#D97736',
   theme,
 }) => {
   const isLight = theme?.category === 'light';
@@ -203,19 +204,21 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
             </div>
 
             {/* Spotify Frosted Scrubber Bar */}
-            <div className="w-full flex items-center gap-2">
-              <span className="text-[11px] font-mono text-[#B3B3B3] tabular-nums w-9 text-right">
+            <div className="w-full flex items-center gap-2.5">
+              <span className="text-[11px] font-mono text-[#B3B3B3] tabular-nums w-9 text-right shrink-0">
                 {formatTime(currentTime)}
               </span>
-              <input
-                type="range"
-                min={0}
-                max={duration || 100}
-                value={currentTime}
-                onChange={(e) => onSeek(Number(e.target.value))}
-                className="flex-1 h-1.5 rounded-full bg-white/20 cursor-pointer accent-[#1DB954] hover:h-2 transition-all"
-              />
-              <span className="text-[11px] font-mono text-[#B3B3B3] tabular-nums w-9">
+              <div className="flex-1">
+                <CustomScrubber
+                  currentTime={currentTime}
+                  duration={duration}
+                  onSeek={onSeek}
+                  accentColorHex="#1DB954"
+                  trackBgColor="rgba(255, 255, 255, 0.2)"
+                  trackHeight="normal"
+                />
+              </div>
+              <span className="text-[11px] font-mono text-[#B3B3B3] tabular-nums w-9 shrink-0">
                 {formatTime(duration)}
               </span>
             </div>
@@ -280,21 +283,17 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
         style={{ display: isYouTube ? 'block' : 'none' }}
         className="fixed bottom-0 inset-x-0 z-40 bg-[#0A0A0A] border-t border-[#262626] pointer-events-auto transition-all"
       >
-        {/* Full-width Top Frosted Red Scrubber Line */}
-        <div 
-          className="h-1.5 w-full bg-white/10 cursor-pointer group relative hover:h-2.5 transition-all"
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const pos = (e.clientX - rect.left) / rect.width;
-            onSeek(pos * (duration || 100));
-          }}
-        >
-          <div 
-            className="h-full bg-[#FF0000] relative"
-            style={{ width: `${Math.min(100, Math.max(0, ((currentTime || 0) / (duration || 1)) * 100))}%` }}
-          >
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#FF0000] opacity-0 group-hover:opacity-100 shadow-md transition-opacity" />
-          </div>
+        {/* Full-width Top Frosted Scrubber Line */}
+        <div className="w-full -mt-2 px-0">
+          <CustomScrubber
+            currentTime={currentTime}
+            duration={duration}
+            onSeek={onSeek}
+            accentColorHex={accentColorHex}
+            trackBgColor="rgba(255, 255, 255, 0.15)"
+            trackHeight="thin"
+            showTimeTooltips={true}
+          />
         </div>
 
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 h-16 px-4 select-none">
@@ -313,7 +312,7 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
               <button 
                 onClick={onToggleLike} 
                 className="p-1.5 text-[#AAAAAA] hover:text-white transition-colors"
-                style={{ color: isLiked ? '#FF0000' : undefined }}
+                style={{ color: isLiked ? accentColorHex : undefined }}
               >
                 <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
               </button>
@@ -334,7 +333,8 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
               onClick={onTogglePlay}
-              className="w-11 h-11 rounded-full bg-[#FF0000] text-white flex items-center justify-center shadow-lg hover:brightness-110"
+              className="w-11 h-11 rounded-full text-white flex items-center justify-center shadow-lg hover:brightness-110"
+              style={{ backgroundColor: accentColorHex }}
             >
               {isPlaying ? <Pause className="w-5 h-5 fill-white" /> : <Play className="w-5 h-5 fill-white ml-0.5" />}
             </motion.button>
@@ -352,17 +352,23 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
               <div className="flex items-center p-0.5 rounded-full bg-[#1F1F1F] border border-[#333333] text-xs shrink-0">
                 <button
                   onClick={() => isVideoActive && onOpenVideo()}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                    !isVideoActive ? 'bg-[#FF0000] text-white font-bold' : 'text-[#AAAAAA]'
-                  }`}
+                  className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+                  style={{
+                    backgroundColor: !isVideoActive ? accentColorHex : 'transparent',
+                    color: !isVideoActive ? '#FFFFFF' : '#AAAAAA',
+                    fontWeight: !isVideoActive ? 700 : 500,
+                  }}
                 >
                   Song
                 </button>
                 <button
                   onClick={() => !isVideoActive && onOpenVideo()}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                    isVideoActive ? 'bg-[#FF0000] text-white font-bold' : 'text-[#AAAAAA]'
-                  }`}
+                  className="px-3 py-1 rounded-full text-xs font-medium transition-all"
+                  style={{
+                    backgroundColor: isVideoActive ? accentColorHex : 'transparent',
+                    color: isVideoActive ? '#FFFFFF' : '#AAAAAA',
+                    fontWeight: isVideoActive ? 700 : 500,
+                  }}
                 >
                   Video
                 </button>
@@ -370,13 +376,15 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
             )}
             <button 
               onClick={onToggleLyrics}
-              className={`p-2 transition-colors ${isLyricsOpen ? 'text-[#FF0000]' : 'text-[#AAAAAA] hover:text-white'}`}
+              className="p-2 transition-colors hover:text-white"
+              style={{ color: isLyricsOpen ? accentColorHex : '#AAAAAA' }}
             >
               <Mic2 className="w-4 h-4" />
             </button>
             <button 
               onClick={onToggleQueue}
-              className={`p-2 transition-colors ${isQueueOpen ? 'text-[#FF0000]' : 'text-[#AAAAAA] hover:text-white'}`}
+              className="p-2 transition-colors hover:text-white"
+              style={{ color: isQueueOpen ? accentColorHex : '#AAAAAA' }}
             >
               <ListMusic className="w-4 h-4" />
             </button>
@@ -391,7 +399,8 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
                 step={0.02}
                 value={isMuted ? 0 : volume}
                 onChange={(e) => onVolumeChange(Number(e.target.value))}
-                className="w-20 h-1.5 rounded-full bg-white/20 cursor-pointer accent-[#FF0000]"
+                className="w-20 h-1.5 rounded-full bg-white/20 cursor-pointer"
+                style={{ accentColor: accentColorHex }}
               />
             </div>
           </div>
@@ -417,24 +426,16 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
           <div className="absolute top-0 inset-x-8 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent pointer-events-none" />
 
           {/* Integrated Apple-Style Frosted Scrubber Line */}
-          <div 
-            className="absolute top-0 inset-x-0 h-1.5 bg-black/10 dark:bg-white/10 cursor-pointer group hover:h-2.5 transition-all z-50"
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const pos = (e.clientX - rect.left) / rect.width;
-              onSeek(pos * (duration || 100));
-            }}
-            title="Seek Position"
-          >
-            <div 
-              className="h-full relative transition-all duration-150"
-              style={{ 
-                width: `${Math.min(100, Math.max(0, ((currentTime || 0) / (duration || 1)) * 100))}%`,
-                backgroundColor: accentColorHex,
-              }}
-            >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white opacity-0 group-hover:opacity-100 shadow-md transition-opacity" />
-            </div>
+          <div className="absolute top-0 inset-x-0 -mt-1.5 z-50">
+            <CustomScrubber
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={onSeek}
+              accentColorHex={accentColorHex}
+              trackBgColor={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)'}
+              trackHeight="thin"
+              showTimeTooltips={true}
+            />
           </div>
 
           {/* Left: Track Details */}
@@ -578,19 +579,20 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
 
             {/* Apple Frosted Scrubber Progress Bar */}
             <div className="w-full flex items-center gap-3">
-              <span className="text-[11px] font-mono tabular-nums w-10 text-right" style={{ color: textMuted }}>
+              <span className="text-[11px] font-mono tabular-nums w-10 text-right shrink-0" style={{ color: textMuted }}>
                 {formatTime(currentTime)}
               </span>
-              <input
-                type="range"
-                min={0}
-                max={duration || 100}
-                value={currentTime}
-                onChange={(e) => onSeek(Number(e.target.value))}
-                className="flex-1 h-1.5 rounded-full bg-black/10 dark:bg-white/15 cursor-pointer hover:h-2 transition-all"
-                style={{ accentColor: accentColorHex }}
-              />
-              <span className="text-[11px] font-mono tabular-nums w-10" style={{ color: textMuted }}>
+              <div className="flex-1">
+                <CustomScrubber
+                  currentTime={currentTime}
+                  duration={duration}
+                  onSeek={onSeek}
+                  accentColorHex={accentColorHex}
+                  trackBgColor={isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.15)'}
+                  trackHeight="normal"
+                />
+              </div>
+              <span className="text-[11px] font-mono tabular-nums w-10 shrink-0" style={{ color: textMuted }}>
                 {formatTime(duration)}
               </span>
             </div>

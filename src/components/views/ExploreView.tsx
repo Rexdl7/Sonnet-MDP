@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Track, Playlist, ActiveView } from '../../types/media';
-import { INITIAL_TRACKS, INITIAL_PLAYLISTS } from '../../data/curatedTracks';
-import { formatTime } from '../../utils/lyricsParser';
+import { Track, Playlist, ActiveView, UserAuthProfile } from '../../types/media';
+import { INITIAL_TRACKS } from '../../data/curatedTracks';
 import { ThemeConfig } from '../../utils/themeConfig';
 import { 
-  Play, Sparkles, Flame, Heart, Radio, 
-  Music, Download, Film, Youtube, Plus, Compass,
-  TrendingUp, Headphones, Sliders, Disc3, Shuffle,
-  Volume2, RefreshCw, Zap, Info, Library, ListMusic
+  Play, Sparkles, Heart, Radio, 
+  Download, Film, Youtube, Plus,
+  Sliders, Disc3, Shuffle, RefreshCw, Info, CheckCircle2,
+  Clock, Music2, ExternalLink
 } from 'lucide-react';
+import { generateYouTubeMusicRecommendations, RecommendationResult } from '../../services/youtubeOAuthService';
+import { motion } from 'framer-motion';
 
 interface ExploreViewProps {
   onPlayTrack: (track: Track) => void;
@@ -26,6 +27,11 @@ interface ExploreViewProps {
   theme?: ThemeConfig;
   smartShuffle?: boolean;
   onToggleSmartShuffle?: () => void;
+  user?: UserAuthProfile | null;
+  historyQueue?: Track[];
+  youtubeLikedTracks?: Track[];
+  isYouTubeSynced?: boolean;
+  onOpenAuthModal?: () => void;
 }
 
 export const ExploreView: React.FC<ExploreViewProps> = ({
@@ -40,747 +46,574 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   likedTrackIds,
   onToggleLike,
   onSwitchView,
-  accentColorHex = '#FF0000',
+  accentColorHex = '#D97736',
   theme,
   smartShuffle = false,
   onToggleSmartShuffle,
+  user,
+  historyQueue = [],
+  youtubeLikedTracks = [],
+  isYouTubeSynced = false,
+  onOpenAuthModal,
 }) => {
   const [selectedMood, setSelectedMood] = useState<string>('All');
-  const [selectedTrendingCategory, setSelectedTrendingCategory] = useState<string>('charts');
-  
-  // Theme contrast variables
-  const isLight = theme?.category === 'light';
-  const bgColor = theme?.colors.bg || (isLight ? '#F8FAFC' : '#030303');
-  const surfaceColor = theme?.colors.surface || (isLight ? '#FFFFFF' : '#121212');
-  const surfaceHover = theme?.colors.surfaceHover || (isLight ? '#F1F5F9' : '#1F1F1F');
-  const textColor = theme?.colors.text || (isLight ? '#0F172A' : '#FFFFFF');
-  const textMuted = theme?.colors.textMuted || (isLight ? '#64748B' : '#94A3B8');
-  const borderColor = theme?.colors.border || (isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)');
-
-  // Location and country-specific chart state
-  const [userCountry, setUserCountry] = useState<{ code: string; name: string; flag: string }>(() => {
-    try {
-      const saved = localStorage.getItem('sonnet_music_country');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return { code: 'GLOBAL', name: 'Global', flag: '🌐' };
+  const [recommendations, setRecommendations] = useState<RecommendationResult>({
+    quickPicks: [],
+    similarToTopArtist: null,
+    supermix: [],
   });
-  const [isCountryPickerOpen, setIsCountryPickerOpen] = useState<boolean>(false);
+  const [isLoadingRecs, setIsLoadingRecs] = useState<boolean>(false);
 
-  const [trendingTracks, setTrendingTracks] = useState<Track[]>(INITIAL_TRACKS);
-  const [isLoadingTrending, setIsLoadingTrending] = useState<boolean>(false);
-  const [aiRecommendations, setAiRecommendations] = useState<Track[]>([]);
-  const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
-  const [recentTracks, setRecentTracks] = useState<Track[]>(INITIAL_TRACKS.slice(0, 6));
+  // Natural warm studio colors
+  const isLight = theme?.category === 'light';
+  const bgColor = theme?.colors.bg || (isLight ? '#F8FAFC' : '#141416');
+  const surfaceColor = theme?.colors.surface || (isLight ? '#FFFFFF' : '#1E1E23');
+  const surfaceHover = theme?.colors.surfaceHover || (isLight ? '#F1F5F9' : '#28282F');
+  const textColor = theme?.colors.text || (isLight ? '#0F172A' : '#F2EFE9');
+  const textMuted = theme?.colors.textMuted || (isLight ? '#64748B' : '#A09D96');
+  const borderColor = theme?.colors.border || (isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)');
+  const copperAccent = theme?.colors.accent || '#D97736';
 
-  const moodChips = ['All', 'Chill', 'Workout', 'Focus', 'Late Night', 'Party', 'Romance', 'Gaming'];
-  const trendingCategories = [
-    { id: 'charts', label: 'Top 50 Charts' },
-    { id: 'viral', label: 'Viral TikTok Hits' },
-    { id: 'hiphop', label: 'Hip-Hop Hotlist' },
-    { id: 'pop', label: 'Pop Anthems' },
-    { id: 'electronic', label: 'EDM & Dance' },
-    { id: 'lofi', label: 'Lo-Fi Chill Beats' },
-    { id: 'rock', label: 'Rock & Alternative' },
-  ];
-
-  // Spotify Made For You Mixes
-  const spotifyDailyMixes = [
-    { id: 'mix-1', title: 'Daily Mix 1', genre: 'Chill R&B & Soul', color: '#E11D48', cover: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80' },
-    { id: 'mix-2', title: 'Daily Mix 2', genre: 'Hip-Hop Hotlist', color: '#8B5CF6', cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80' },
-    { id: 'mix-3', title: 'Daily Mix 3', genre: 'Pop & Dance Anthems', color: '#10B981', cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80' },
-    { id: 'mix-4', title: 'Daily Mix 4', genre: 'Lo-Fi Coffee Study', color: '#F59E0B', cover: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=400&q=80' },
-  ];
-
-  const availableCountries = [
-    { code: 'GLOBAL', name: 'Global Charts', flag: '🌐' },
-    { code: 'IN', name: 'India', flag: '🇮🇳' },
-    { code: 'US', name: 'United States', flag: '🇺🇸' },
-    { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
-    { code: 'JP', name: 'Japan', flag: '🇯🇵' },
-    { code: 'KR', name: 'South Korea', flag: '🇰🇷' },
-    { code: 'BR', name: 'Brazil', flag: '🇧🇷' },
-    { code: 'MX', name: 'Mexico & Latin', flag: '🇲🇽' },
-    { code: 'DE', name: 'Germany', flag: '🇩🇪' },
-    { code: 'CA', name: 'Canada', flag: '🇨🇦' },
-  ];
-
-  // Auto-detect location on initial load if not set
+  // Seed algorithmic YouTube Music recommendations whenever YouTube library is updated
   useEffect(() => {
-    const saved = localStorage.getItem('sonnet_music_country');
-    if (saved) return;
-
-    const detectLocation = async () => {
-      try {
-        const res = await fetch('/api/location/detect');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.countryCode) {
-            const detected = {
-              code: data.countryCode,
-              name: data.countryName || data.countryCode,
-              flag: data.flag || '🌐',
-            };
-            setUserCountry(detected);
-            localStorage.setItem('sonnet_music_country', JSON.stringify(detected));
-            return;
-          }
+    let isMounted = true;
+    setIsLoadingRecs(true);
+    generateYouTubeMusicRecommendations(youtubeLikedTracks)
+      .then((recs) => {
+        if (isMounted) {
+          setRecommendations(recs);
         }
-      } catch {}
+      })
+      .catch((err) => {
+        console.warn('Recommendation engine notice:', err);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingRecs(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
     };
+  }, [youtubeLikedTracks]);
 
-    detectLocation();
-  }, []);
+  // Determine hero track: Prioritize user's actual favorite from YouTube or history
+  const heroTrack: Track | null = (youtubeLikedTracks.length > 0)
+    ? youtubeLikedTracks[0]
+    : (historyQueue.length > 0 ? historyQueue[0] : null);
 
-  const heroTrack = currentTrack || trendingTracks[0] || INITIAL_TRACKS[0];
+  const moodChips = [
+    'All',
+    'Dark Synth & Phonk',
+    'Acoustic & Studio',
+    'Dark Pop',
+    'Indie & Electro',
+    'Pop Classics',
+    'Ambient & Mixes',
+  ];
 
-  // Fetch Trending YouTube Music tracks by category & country
-  const fetchTrendingTracks = async (category: string, countryCode?: string) => {
-    setIsLoadingTrending(true);
-    const countryToUse = countryCode || userCountry.code;
-    try {
-      const res = await fetch(`/api/music/trending?category=${category}&country=${countryToUse}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.results && data.results.length > 0) {
-          setTrendingTracks(data.results);
-        }
-      }
-    } catch {
-      // ignore
-    } finally {
-      setIsLoadingTrending(false);
-    }
+  // Dynamic Metadata Tag Classifier
+  const matchesMoodTag = (track: Track, tag: string): boolean => {
+    if (!tag || tag === 'All') return true;
+    const text = `${track.title} ${track.artist} ${track.genre || ''} ${track.album || ''}`.toLowerCase();
+    if (tag === 'Dark Synth & Phonk') return /synth|phonk|beamglow|villain|dark|cyber|retro/.test(text);
+    if (tag === 'Acoustic & Studio') return /acoustic|folk|studio|guitar|bon iver|coldplay|chill/.test(text);
+    if (tag === 'Dark Pop') return /dark pop|pop|chris grey|bring me back|rebel|billie|feather/.test(text);
+    if (tag === 'Indie & Electro') return /indie|electro|failure|ptasinski|daft punk|lucky/.test(text);
+    if (tag === 'Pop Classics') return /christina|aguilera|genie|brooklyn|dua lipa|levitating|pop/.test(text);
+    if (tag === 'Ambient & Mixes') return /ambient|ambience|devil|cry|vampiilure|lofi|interstellar|zimmer|soundtrack/.test(text);
+    return true;
   };
 
-  useEffect(() => {
-    fetchTrendingTracks(selectedTrendingCategory, userCountry.code);
-  }, [selectedTrendingCategory, userCountry.code]);
-
-  // Fetch AI recommendations when current track changes
-  useEffect(() => {
-    if (!heroTrack) return;
-    const fetchAiRecommendations = async () => {
-      setIsLoadingAi(true);
-      try {
-        const res = await fetch('/api/ai/recommend', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            currentTrack: {
-              title: heroTrack.title,
-              artist: heroTrack.artist,
-              genre: heroTrack.genre || 'Popular',
-            },
-            history: recentTracks.map((t) => `${t.title} - ${t.artist}`),
-            mood: selectedMood,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.results && data.results.length > 0) {
-            setAiRecommendations(data.results);
-          }
-        }
-      } catch {
-        // fallback
-      } finally {
-        setIsLoadingAi(false);
-      }
-    };
-
-    fetchAiRecommendations();
-  }, [heroTrack.id, heroTrack.title, selectedMood]);
-
-  // Handle Mood Filter Clicks
-  const handleMoodClick = async (mood: string) => {
-    setSelectedMood(mood);
-    if (mood === 'All') {
-      fetchTrendingTracks(selectedTrendingCategory, userCountry.code);
-      return;
-    }
-
-    setIsLoadingTrending(true);
-    try {
-      const res = await fetch(`/api/music/search?q=${encodeURIComponent(mood + ' vibe ' + userCountry.name + ' hits')}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.results && data.results.length > 0) {
-          setTrendingTracks(data.results);
-        }
-      }
-    } catch {
-      // ignore
-    } finally {
-      setIsLoadingTrending(false);
-    }
-  };
-
-  const handleSelectCountry = (country: { code: string; name: string; flag: string }) => {
-    setUserCountry(country);
-    setIsCountryPickerOpen(false);
-    localStorage.setItem('sonnet_music_country', JSON.stringify(country));
+  const handleTagSelect = (chip: string) => {
+    setSelectedMood(chip);
   };
 
   return (
     <div 
-      className="h-full overflow-y-auto px-3 py-4 sm:px-6 sm:py-6 md:p-8 space-y-6 md:space-y-8 select-none pb-36 md:pb-12 transition-colors duration-300"
-      style={{
-        backgroundColor: bgColor,
-        color: textColor,
-      }}
+      className="h-full overflow-y-auto px-4 md:px-8 py-6 space-y-8 select-none transition-colors duration-300 font-sans"
+      style={{ backgroundColor: bgColor, color: textColor }}
     >
-      {/* 1. Country / Region Selector & Mood Chips Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* Mood Chips Scroller */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none flex-1 min-w-0">
-          {moodChips.map((mood) => {
-            const isSelected = selectedMood === mood;
-            return (
-              <button
-                key={mood}
-                onClick={() => handleMoodClick(mood)}
-                className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all active:scale-95 ${
-                  isSelected
-                    ? 'text-white font-bold shadow-md'
-                    : 'border transition-colors'
-                }`}
-                style={{
-                  backgroundColor: isSelected ? accentColorHex : surfaceColor,
-                  borderColor: isSelected ? accentColorHex : borderColor,
-                  color: isSelected ? '#FFFFFF' : textColor,
-                }}
-              >
-                {mood}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Location Region Selector Pill & Spotify Smart Shuffle Button */}
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-          {onToggleSmartShuffle && (
-            <button
-              onClick={onToggleSmartShuffle}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                smartShuffle ? 'text-white font-bold shadow-md' : ''
-              }`}
+      {/* 1. Category & Mood Filter Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs">
+        {moodChips.map((chip) => {
+          const isSelected = selectedMood === chip;
+          return (
+            <motion.button
+              key={chip}
+              whileHover={{ scale: 1.06, y: -1 }}
+              whileTap={{ scale: 0.94 }}
+              onClick={() => handleTagSelect(chip)}
+              className="px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 shadow-sm"
               style={{
-                backgroundColor: smartShuffle ? '#1DB954' : surfaceColor,
-                borderColor: smartShuffle ? '#1DB954' : borderColor,
-                color: smartShuffle ? '#FFFFFF' : textColor,
+                backgroundColor: isSelected ? copperAccent : surfaceColor,
+                color: isSelected ? '#FFFFFF' : textMuted,
+                borderWidth: '1px',
+                borderColor: isSelected ? copperAccent : borderColor,
               }}
-              title="Spotify Smart Shuffle (weaves personalized AI tracks into queue)"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span className="hidden sm:inline">Smart Shuffle</span>
-            </button>
-          )}
-
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setIsCountryPickerOpen((prev) => !prev)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shadow-sm"
-              style={{
-                backgroundColor: surfaceColor,
-                borderColor: borderColor,
-                color: textColor,
-              }}
-              title="Change music chart country"
-            >
-              <span className="text-base leading-none">{userCountry.flag}</span>
-              <span className="font-bold max-w-[110px] truncate">{userCountry.name}</span>
-              <span className="text-[10px]" style={{ color: textMuted }}>Charts ▼</span>
-            </button>
-
-            {isCountryPickerOpen && (
-              <div 
-                className="absolute right-0 mt-2 w-48 rounded-2xl border shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150"
-                style={{
-                  backgroundColor: surfaceColor,
-                  borderColor: borderColor,
-                  color: textColor,
-                }}
-              >
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider" style={{ color: textMuted }}>
-                  Select Chart Region
-                </div>
-                <div className="max-h-60 overflow-y-auto space-y-0.5">
-                  {availableCountries.map((c) => (
-                    <button
-                      key={c.code}
-                      onClick={() => handleSelectCountry(c)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left ${
-                        userCountry.code === c.code ? 'font-bold' : ''
-                      }`}
-                      style={{
-                        backgroundColor: userCountry.code === c.code ? `${accentColorHex}20` : 'transparent',
-                        color: userCountry.code === c.code ? accentColorHex : textColor,
-                      }}
-                    >
-                      <span className="flex items-center gap-2 truncate">
-                        <span>{c.flag}</span>
-                        <span className="truncate">{c.name}</span>
-                      </span>
-                      {userCountry.code === c.code && (
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: accentColorHex }} />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+              {chip}
+            </motion.button>
+          );
+        })}
       </div>
 
-      {/* 2. Hero Spotlight Banner (Dynamic Adaptive Light/Dark Card) */}
-      <div 
-        className="relative rounded-2xl sm:rounded-3xl overflow-hidden p-4 sm:p-6 md:p-8 border shadow-xl group transition-colors"
-        style={{
-          backgroundColor: isLight ? '#FFFFFF' : '#0B0B0C',
-          borderColor: borderColor,
-        }}
-      >
-        <div 
-          className="absolute -right-20 -top-20 w-80 h-80 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-700"
-          style={{ backgroundColor: accentColorHex }}
-        />
+      {/* 2. Hero Spotlight or Clean Cold-Start Launcher */}
+      {heroTrack ? (
+        <div className="relative rounded-3xl overflow-hidden border shadow-lg transition-all" style={{ backgroundColor: surfaceColor, borderColor }}>
+          {/* Soft Warm Ambient Lighting Gradient */}
+          <div 
+            className="absolute inset-0 pointer-events-none opacity-40"
+            style={{
+              background: `radial-gradient(ellipse at top left, ${copperAccent}25 0%, transparent 70%)`
+            }}
+          />
 
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
-          <div className="flex items-center gap-3.5 sm:gap-5 w-full md:w-auto">
-            <div className="relative w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl shrink-0 group-hover:scale-105 transition-transform duration-300 bg-neutral-800">
-              <img
-                src={heroTrack.thumbnailUrl}
-                alt={heroTrack.title}
-                className="w-full h-full object-cover"
-              />
-              <button
-                onClick={() => onPlayTrack(heroTrack)}
-                className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
+          <div className="relative p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 z-10">
+            <div className="flex items-center gap-5 sm:gap-6 min-w-0">
+              <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden shrink-0 shadow-md border" style={{ borderColor }}>
+                <img
+                  src={heroTrack.thumbnailUrl}
+                  alt={heroTrack.title}
+                  className="w-full h-full object-cover"
+                />
                 <div 
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shadow-xl text-white transform hover:scale-110 transition-transform"
-                  style={{ backgroundColor: accentColorHex }}
-                >
-                  <Play className="w-5 h-5 fill-white ml-0.5" />
-                </div>
-              </button>
-            </div>
-
-            <div className="space-y-1 min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span 
-                  className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full border flex items-center gap-1 w-max"
-                  style={{
-                    backgroundColor: `${accentColorHex}15`,
-                    borderColor: `${accentColorHex}30`,
-                    color: accentColorHex,
-                  }}
-                >
-                  <Flame className="w-3 h-3 fill-current" />
-                  <span>{userCountry.flag} Spotlight #1</span>
-                </span>
-                <span className="text-[10px] font-medium hidden sm:inline" style={{ color: textMuted }}>
-                  {userCountry.name} Chart
-                </span>
-              </div>
-              <h1 className="text-base sm:text-2xl md:text-3xl font-extrabold tracking-tight truncate" style={{ color: textColor }}>
-                {heroTrack.title}
-              </h1>
-              <p className="text-xs sm:text-sm font-medium flex items-center gap-1.5 truncate" style={{ color: textMuted }}>
-                <span className="truncate">{heroTrack.artist}</span>
-                <span>&bull;</span>
-                <span className="shrink-0">{heroTrack.genre || 'Trending'}</span>
-              </p>
-              <div className="flex items-center gap-2 sm:gap-3 pt-1.5 flex-wrap">
-                <button
+                  className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
                   onClick={() => onPlayTrack(heroTrack)}
-                  className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-full font-bold text-xs flex items-center gap-2 text-white shadow-lg hover:brightness-110 active:scale-95 transition-all"
-                  style={{ backgroundColor: accentColorHex }}
                 >
-                  <Play className="w-3.5 h-3.5 fill-white" />
-                  <span>Listen Now</span>
-                </button>
-                {onOpenVideo && (
-                  <button
-                    onClick={() => onOpenVideo(heroTrack)}
-                    className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-full font-semibold text-xs flex items-center gap-1.5 border active:scale-95 transition-all"
-                    style={{
-                      backgroundColor: surfaceColor,
-                      borderColor: borderColor,
-                      color: textColor,
-                    }}
-                  >
-                    <Film className="w-3.5 h-3.5 text-red-500" />
-                    <span>Watch</span>
-                  </button>
-                )}
-                {onOpenCredits && (
-                  <button
-                    onClick={() => onOpenCredits(heroTrack)}
-                    className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-full font-semibold text-xs flex items-center gap-1.5 border active:scale-95 transition-all"
-                    style={{
-                      backgroundColor: surfaceColor,
-                      borderColor: borderColor,
-                      color: textColor,
-                    }}
-                    title="View Song Credits & Audio Codec Specs"
-                  >
-                    <Info className="w-3.5 h-3.5 text-blue-500" />
-                    <span className="hidden sm:inline">Credits</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => onToggleLike(heroTrack.id)}
-                  className="p-2 sm:p-2.5 rounded-full border transition-all"
-                  style={{
-                    backgroundColor: likedTrackIds.has(heroTrack.id) ? `${accentColorHex}20` : surfaceColor,
-                    borderColor: likedTrackIds.has(heroTrack.id) ? `${accentColorHex}50` : borderColor,
-                    color: likedTrackIds.has(heroTrack.id) ? accentColorHex : textColor,
-                  }}
-                  title="Like Song"
-                >
-                  <Heart className={`w-3.5 h-3.5 ${likedTrackIds.has(heroTrack.id) ? 'fill-current' : ''}`} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Audiophile Equalizer & High-Res Audio Badge */}
-          <div className="hidden lg:flex flex-col items-end gap-2 text-right">
-            <span className="text-[11px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-              Studio Lossless 24-Bit / 96kHz
-            </span>
-            <button
-              onClick={() => onSwitchView('equalizer')}
-              className="text-xs font-semibold flex items-center gap-1.5 transition-colors"
-              style={{ color: textMuted }}
-            >
-              <Sliders className="w-3.5 h-3.5" style={{ color: accentColorHex }} />
-              <span>Customize 10-Band EQ</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Spotify Style "Made For You" Mixes Carousel */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm sm:text-base font-bold tracking-tight flex items-center gap-2" style={{ color: textColor }}>
-            <span>Made For You</span>
-            <span className="text-[11px] font-normal" style={{ color: textMuted }}>Spotify Personal Mixes</span>
-          </h2>
-          <span className="text-[10px] font-mono" style={{ color: textMuted }}>Daily Mixes</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {spotifyDailyMixes.map((mix) => (
-            <div
-              key={mix.id}
-              onClick={() => {
-                handleMoodClick(mix.genre.split(' ')[0]);
-              }}
-              className="relative p-3 rounded-2xl border transition-all cursor-pointer group shadow-sm flex flex-col justify-between overflow-hidden"
-              style={{
-                backgroundColor: surfaceColor,
-                borderColor: borderColor,
-              }}
-            >
-              <div className="space-y-2">
-                <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-800 shadow-md">
-                  <img
-                    src={mix.cover}
-                    alt={mix.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  />
                   <div 
-                    className="absolute top-2 left-2 px-2 py-0.5 rounded text-[9px] font-extrabold uppercase text-white shadow-md"
-                    style={{ backgroundColor: mix.color }}
+                    className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
+                    style={{ backgroundColor: copperAccent }}
                   >
-                    {mix.title}
+                    <Play className="w-5 h-5 fill-white text-white ml-0.5" />
                   </div>
-                  <div 
-                    className="absolute bottom-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all shadow-xl"
-                    style={{ backgroundColor: mix.color }}
-                  >
-                    <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold truncate" style={{ color: textColor }}>
-                    {mix.title}
-                  </h4>
-                  <p className="text-[11px] truncate" style={{ color: textMuted }}>
-                    {mix.genre}
-                  </p>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      {/* 4. Spotify Style "Quick Picks / Top Country Hits" 2x3 Grid */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm sm:text-base font-bold tracking-tight flex items-center gap-2" style={{ color: textColor }}>
-            <span>Quick Picks & Favorites</span>
-            <span className="text-[11px] font-normal hidden sm:inline" style={{ color: textMuted }}>Based on {userCountry.name}</span>
-          </h2>
-          <span className="text-[10px] font-mono" style={{ color: textMuted }}>
-            {userCountry.flag} Top 6
-          </span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-          {(trendingTracks.length > 0 ? trendingTracks.slice(0, 6) : recentTracks).map((track) => {
-            const isPlayingThis = currentTrackId === track.id;
-            return (
-              <div
-                key={track.id}
-                onClick={() => onPlayTrack(track)}
-                className="flex items-center justify-between p-2 rounded-xl sm:rounded-2xl border transition-all cursor-pointer group shadow-sm min-h-[56px]"
-                style={{
-                  backgroundColor: surfaceColor,
-                  borderColor: borderColor,
-                }}
-              >
-                <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
-                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl overflow-hidden shrink-0 bg-neutral-800">
-                    <img
-                      src={track.thumbnailUrl}
-                      alt={track.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-xs font-bold truncate transition-colors" style={{ color: isPlayingThis ? accentColorHex : textColor }}>
-                      {track.title}
-                    </h4>
-                    <p className="text-[11px] truncate" style={{ color: textMuted }}>
-                      {track.artist}
-                    </p>
-                  </div>
+              <div className="min-w-0 space-y-2">
+                <div className="flex items-center gap-2 text-xs" style={{ color: textMuted }}>
+                  <span>{user ? 'Based on Your YouTube Activity' : 'Featured Track'}</span>
+                  <span aria-hidden="true">&bull;</span>
+                  <span style={{ color: copperAccent }} className="font-medium">
+                    {selectedMood !== 'All' ? selectedMood : (heroTrack.genre || 'Music Station')}
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0 pr-1">
-                  {onOpenCredits && (
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight truncate" style={{ color: textColor }}>
+                  {heroTrack.title}
+                </h1>
+
+                <p className="text-xs sm:text-sm font-medium truncate" style={{ color: textMuted }}>
+                  {heroTrack.artist} {heroTrack.album ? `· ${heroTrack.album}` : ''}
+                </p>
+
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={() => onPlayTrack(heroTrack)}
+                    className="px-5 py-2.5 rounded-full font-semibold text-xs flex items-center gap-2 text-white shadow-md hover:brightness-110 active:scale-95 transition-all"
+                    style={{ backgroundColor: copperAccent }}
+                  >
+                    <Play className="w-3.5 h-3.5 fill-white" />
+                    <span>Play {selectedMood !== 'All' ? `${selectedMood} Radio` : 'Radio'}</span>
+                  </button>
+
+                  {onOpenVideo && (
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenCredits(track);
-                      }}
-                      className="p-1 rounded-full text-slate-400 hover:text-blue-500 transition-colors"
-                      title="Song Credits"
+                      onClick={() => onOpenVideo(heroTrack)}
+                      className="px-4 py-2.5 rounded-full font-medium text-xs flex items-center gap-1.5 border active:scale-95 transition-all"
+                      style={{ backgroundColor: surfaceColor, borderColor, color: textColor }}
                     >
-                      <Info className="w-3.5 h-3.5" />
+                      <Film className="w-3.5 h-3.5" style={{ color: copperAccent }} />
+                      <span>Watch Video</span>
                     </button>
                   )}
-                  <div 
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity shadow-md ml-1"
-                    style={{ backgroundColor: accentColorHex }}
+
+                  <button
+                    onClick={() => onToggleLike(heroTrack.id)}
+                    className="p-2.5 rounded-full border transition-all"
+                    style={{
+                      backgroundColor: likedTrackIds.has(heroTrack.id) ? `${copperAccent}20` : surfaceColor,
+                      borderColor: likedTrackIds.has(heroTrack.id) ? `${copperAccent}50` : borderColor,
+                      color: likedTrackIds.has(heroTrack.id) ? copperAccent : textMuted,
+                    }}
+                    title="Like Song"
                   >
-                    <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
-                  </div>
+                    <Heart className={`w-4 h-4 ${likedTrackIds.has(heroTrack.id) ? 'fill-current' : ''}`} />
+                  </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 5. AI Recommended Radio (Powered by Gemini 3.8 Flash) */}
-      <div className="space-y-3 pt-1">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-500" />
-                Gemini 3.8 AI Radio
-              </span>
-              <h2 className="text-sm sm:text-base md:text-lg font-bold tracking-tight" style={{ color: textColor }}>
-                Recommended For Your Taste
-              </h2>
             </div>
-            <p className="text-[11px] sm:text-xs mt-0.5 truncate" style={{ color: textMuted }}>
-              Continuously tuned by Gemini AI based on vibe: "{heroTrack.title}"
+
+            <div className="hidden lg:flex flex-col items-end gap-2 text-right shrink-0">
+              <span 
+                className="text-xs font-mono px-3 py-1 rounded-full border"
+                style={{
+                  backgroundColor: `${copperAccent}15`,
+                  color: copperAccent,
+                  borderColor: `${copperAccent}30`,
+                }}
+              >
+                Lossless 24-Bit Studio Audio
+              </span>
+              <button
+                onClick={() => onSwitchView('equalizer')}
+                className="text-xs font-medium flex items-center gap-1.5 transition-colors"
+                style={{ color: textMuted }}
+              >
+                <Sliders className="w-3.5 h-3.5" style={{ color: copperAccent }} />
+                <span>10-Band Studio Equalizer</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Zero-state station launcher when boot without preloaded songs */
+        <div 
+          className="relative rounded-3xl p-6 sm:p-10 border shadow-lg flex flex-col items-center text-center space-y-6 overflow-hidden"
+          style={{ backgroundColor: surfaceColor, borderColor }}
+        >
+          <div 
+            className="absolute inset-0 pointer-events-none opacity-30"
+            style={{
+              background: `radial-gradient(circle at center, ${copperAccent}30 0%, transparent 70%)`
+            }}
+          />
+
+          <div 
+            className="w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg text-white"
+            style={{ backgroundColor: copperAccent }}
+          >
+            <Radio className="w-8 h-8" />
+          </div>
+
+          <div className="max-w-lg space-y-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: textColor }}>
+              What do you want to listen to?
+            </h1>
+            <p className="text-xs sm:text-sm" style={{ color: textMuted }}>
+              Search any track, start an artist station, or connect your Google account to sync your real YouTube Music library.
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              if (aiRecommendations.length > 0) {
-                onPlayTrack(aiRecommendations[0]);
-              }
-            }}
-            className="self-start sm:self-auto px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 border active:scale-95 transition-all shadow-sm"
-            style={{
-              backgroundColor: surfaceColor,
-              borderColor: borderColor,
-              color: textColor,
-            }}
-          >
-            <Shuffle className="w-3.5 h-3.5 text-amber-500" />
-            <span>Play Radio</span>
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-2.5 max-w-xl">
+            <button
+              onClick={() => onSwitchView('search')}
+              className="px-5 py-2.5 rounded-full text-xs font-semibold text-white shadow-md active:scale-95 transition-all flex items-center gap-2"
+              style={{ backgroundColor: copperAccent }}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Search Any Song or Artist</span>
+            </button>
+
+            {onOpenAuthModal && (
+              <button
+                onClick={onOpenAuthModal}
+                className="px-5 py-2.5 rounded-full text-xs font-semibold border active:scale-95 transition-all flex items-center gap-2"
+                style={{ backgroundColor: surfaceColor, borderColor, color: textColor }}
+              >
+                <Youtube className="w-4 h-4" style={{ color: copperAccent }} />
+                <span>Connect Google YouTube Account</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 3. Real YouTube Connected Shelf: "Listen Again & Liked Songs" */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div 
+              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+              style={{ backgroundColor: `${copperAccent}20` }}
+            >
+              <Youtube className="w-4 h-4" style={{ color: copperAccent }} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold tracking-tight" style={{ color: textColor }}>
+                  {user ? 'Listen Again' : 'Studio Recents & Liked Tracks'}
+                </h2>
+                {user ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                    <span>YouTube Account Synced</span>
+                  </span>
+                ) : (
+                  onOpenAuthModal && (
+                    <button
+                      onClick={onOpenAuthModal}
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border transition-colors"
+                      style={{ backgroundColor: surfaceColor, borderColor, color: textColor }}
+                    >
+                      <Sparkles className="w-3 h-3" style={{ color: copperAccent }} />
+                      <span>Sync Real Account</span>
+                    </button>
+                  )
+                )}
+              </div>
+              <p className="text-xs" style={{ color: textMuted }}>
+                {user 
+                  ? `Songs you actually liked on YouTube (${youtubeLikedTracks.length} tracks loaded)`
+                  : 'Connect your Google account to sync your real YouTube history'}
+              </p>
+            </div>
+          </div>
+
+          <span className="text-xs font-mono" style={{ color: textMuted }}>
+            {selectedMood !== 'All' ? `${selectedMood} Station` : (youtubeLikedTracks.length > 0 ? `${youtubeLikedTracks.length} Songs` : 'Personalized')}
+          </span>
         </div>
 
-        {/* AI Recommendations Cards Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
-          {isLoadingAi && aiRecommendations.length === 0 ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="p-2.5 sm:p-3 rounded-2xl border animate-pulse space-y-2" style={{ backgroundColor: surfaceColor, borderColor }}>
-                <div className="aspect-square rounded-xl bg-black/10 dark:bg-white/10" />
-                <div className="h-3 rounded bg-black/10 dark:bg-white/10 w-3/4" />
-                <div className="h-2.5 rounded bg-black/5 dark:bg-white/5 w-1/2" />
-              </div>
-            ))
-          ) : (
-            aiRecommendations.slice(0, 8).map((track) => (
-              <div
-                key={track.id}
-                onClick={() => onPlayTrack(track)}
-                className="p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
-                style={{
-                  backgroundColor: surfaceColor,
-                  borderColor: borderColor,
-                }}
-              >
-                <div className="space-y-2">
-                  <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-800 shadow-md">
+        {/* Display real YouTube liked tracks filtered by selected mood/genre tag */}
+        {(() => {
+          const rawTracks = youtubeLikedTracks.length > 0 
+            ? youtubeLikedTracks 
+            : (historyQueue.length > 0 ? historyQueue : INITIAL_TRACKS);
+
+          const filtered = rawTracks.filter((t) => matchesMoodTag(t, selectedMood));
+          const displayTracks = filtered.length > 0 ? filtered : rawTracks;
+
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
+              {displayTracks.slice(0, 6).map((track, idx) => {
+                const isPlayingThis = currentTrackId === track.id;
+                return (
+                  <motion.div
+                    key={`${track.id}-${idx}`}
+                    whileHover={{ y: -4, scale: 1.025 }}
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                    onClick={() => onPlayTrack(track)}
+                    className="group relative p-3 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between"
+                    style={{
+                      backgroundColor: surfaceColor,
+                      borderColor: isPlayingThis ? copperAccent : borderColor,
+                    }}
+                  >
+                    <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-900 shadow">
+                      <img
+                        src={track.thumbnailUrl}
+                        alt={track.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      {isPlayingThis && (
+                        <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md flex items-center gap-0.5 z-10">
+                          <motion.span animate={{ height: ['30%', '100%', '40%'] }} transition={{ repeat: Infinity, duration: 0.5, ease: 'easeInOut' }} className="w-0.5 h-2.5 bg-red-500 rounded-full" style={{ backgroundColor: copperAccent }} />
+                          <motion.span animate={{ height: ['80%', '20%', '90%'] }} transition={{ repeat: Infinity, duration: 0.6, ease: 'easeInOut' }} className="w-0.5 h-2.5 bg-red-500 rounded-full" style={{ backgroundColor: copperAccent }} />
+                          <motion.span animate={{ height: ['40%', '90%', '30%'] }} transition={{ repeat: Infinity, duration: 0.4, ease: 'easeInOut' }} className="w-0.5 h-2.5 bg-red-500 rounded-full" style={{ backgroundColor: copperAccent }} />
+                        </div>
+                      )}
+                      <div 
+                        className={`absolute bottom-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white transition-all shadow-md ${
+                          isPlayingThis ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100'
+                        }`}
+                        style={{ backgroundColor: copperAccent }}
+                      >
+                        <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
+                      </div>
+                    </div>
+                    <div className="mt-2.5 min-w-0">
+                      <h4 className="text-xs font-semibold truncate" style={{ color: isPlayingThis ? copperAccent : textColor }}>
+                        {track.title}
+                      </h4>
+                      <p className="text-[11px] truncate mt-0.5" style={{ color: textMuted }}>
+                        {track.artist}
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* 4. Algorithmic Shelf: "Quick Picks" (Based on user's real YouTube artists & active mood tag) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold tracking-tight" style={{ color: textColor }}>
+              {selectedMood !== 'All' ? `${selectedMood} Quick Picks` : 'Quick Picks'}
+            </h2>
+            <p className="text-xs" style={{ color: textMuted }}>
+              Fresh songs and deep cuts from creators matching your active filter
+            </p>
+          </div>
+          <span className="text-xs font-mono" style={{ color: textMuted }}>Algorithmic Radio</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {(() => {
+            const rawPicks = recommendations.quickPicks.length > 0 ? recommendations.quickPicks : INITIAL_TRACKS;
+            const filteredPicks = rawPicks.filter((t) => matchesMoodTag(t, selectedMood));
+            const displayPicks = filteredPicks.length > 0 ? filteredPicks : rawPicks;
+
+            return displayPicks.slice(0, 6).map((track) => {
+              const isPlayingThis = currentTrackId === track.id;
+              return (
+                <motion.div
+                  key={track.id}
+                  whileHover={{ y: -2, scale: 1.015 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                  onClick={() => onPlayTrack(track)}
+                  className="flex items-center justify-between p-2.5 rounded-2xl border transition-all cursor-pointer group shadow-sm"
+                  style={{
+                    backgroundColor: surfaceColor,
+                    borderColor: isPlayingThis ? copperAccent : borderColor,
+                  }}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1 pr-2">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-neutral-900 relative">
+                      <img
+                        src={track.thumbnailUrl}
+                        alt={track.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div 
+                        className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Play className="w-4 h-4 fill-white text-white ml-0.5" />
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-semibold truncate" style={{ color: isPlayingThis ? copperAccent : textColor }}>
+                        {track.title}
+                      </h4>
+                      <p className="text-[11px] truncate mt-0.5" style={{ color: textMuted }}>
+                        {track.artist}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleLike(track.id);
+                      }}
+                      className="p-2 transition-colors"
+                      style={{ color: likedTrackIds.has(track.id) ? copperAccent : textMuted }}
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${likedTrackIds.has(track.id) ? 'fill-current' : ''}`} />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            });
+          })()}
+        </div>
+      </div>
+
+      {/* 5. Algorithmic Shelf: "Similar to [Top Artist]" */}
+      {recommendations.similarToTopArtist && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold tracking-tight" style={{ color: textColor }}>
+                Similar to {recommendations.similarToTopArtist.artistName}
+              </h2>
+              <p className="text-xs" style={{ color: textMuted }}>
+                Genre recommendations tailored to your top-streamed creator
+              </p>
+            </div>
+            <span className="text-xs font-mono" style={{ color: textMuted }}>Collaborative Filter</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
+            {recommendations.similarToTopArtist.tracks.map((track, idx) => {
+              const isPlayingThis = currentTrackId === track.id;
+              return (
+                <div
+                  key={`${track.id}-${idx}`}
+                  onClick={() => onPlayTrack(track)}
+                  className="group relative p-3 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between hover:scale-[1.02]"
+                  style={{
+                    backgroundColor: surfaceColor,
+                    borderColor: isPlayingThis ? copperAccent : borderColor,
+                  }}
+                >
+                  <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-900 shadow">
                     <img
                       src={track.thumbnailUrl}
                       alt={track.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                     <div 
-                      className="absolute bottom-2 right-2 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all shadow-xl transform sm:translate-y-2 group-hover:translate-y-0"
-                      style={{ backgroundColor: accentColorHex }}
+                      className={`absolute bottom-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white transition-all shadow-md ${
+                        isPlayingThis ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100'
+                      }`}
+                      style={{ backgroundColor: copperAccent }}
                     >
-                      <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white ml-0.5" />
+                      <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
                     </div>
                   </div>
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-bold truncate group-hover:text-amber-500 transition-colors" style={{ color: textColor }}>
+                  <div className="mt-2.5 min-w-0">
+                    <h4 className="text-xs font-semibold truncate" style={{ color: textColor }}>
                       {track.title}
                     </h4>
-                    <p className="text-[11px] truncate" style={{ color: textMuted }}>
+                    <p className="text-[11px] truncate mt-0.5" style={{ color: textMuted }}>
                       {track.artist}
                     </p>
                   </div>
                 </div>
-                <span className="mt-2 text-[9px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 truncate block text-center">
-                  {(track as any).aiRecommendationReason || 'Sonic Vibe Match'}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* 6. Top Trending from YouTube Music (Country & Category Driven) */}
-      <div className="space-y-3 sm:space-y-4 pt-1">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-red-500" />
-            <h2 className="text-sm sm:text-base md:text-lg font-bold tracking-tight" style={{ color: textColor }}>
-              Top Trending in {userCountry.name}
-            </h2>
-          </div>
-
-          {/* Trending Category Selector Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {trendingCategories.map((cat) => {
-              const isSelected = selectedTrendingCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedTrendingCategory(cat.id)}
-                  className={`px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold whitespace-nowrap transition-all ${
-                    isSelected
-                      ? 'text-white shadow-md'
-                      : 'border transition-colors'
-                  }`}
-                  style={{
-                    backgroundColor: isSelected ? accentColorHex : surfaceColor,
-                    borderColor: isSelected ? accentColorHex : borderColor,
-                    color: isSelected ? '#FFFFFF' : textColor,
-                  }}
-                >
-                  {cat.label}
-                </button>
               );
             })}
           </div>
         </div>
+      )}
 
-        {/* Trending Cards Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
-          {isLoadingTrending ? (
-            Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="p-2.5 sm:p-3 rounded-2xl border animate-pulse space-y-2" style={{ backgroundColor: surfaceColor, borderColor }}>
-                <div className="aspect-square rounded-xl bg-black/10 dark:bg-white/10" />
-                <div className="h-3 rounded bg-black/10 dark:bg-white/10 w-3/4" />
-                <div className="h-2.5 rounded bg-black/5 dark:bg-white/5 w-1/2" />
-              </div>
-            ))
-          ) : (
-            trendingTracks.slice(0, 18).map((track) => {
-              const isPlayingThis = currentTrackId === track.id;
-              return (
-                <div
-                  key={track.id}
-                  onClick={() => onPlayTrack(track)}
-                  className="p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
-                  style={{
-                    backgroundColor: surfaceColor,
-                    borderColor: borderColor,
-                  }}
-                >
-                  <div className="space-y-2">
-                    <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-800 shadow-md">
-                      <img
-                        src={track.thumbnailUrl}
-                        alt={track.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                      <div 
-                        className="absolute bottom-2 right-2 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all shadow-xl transform sm:translate-y-2 group-hover:translate-y-0"
-                        style={{ backgroundColor: accentColorHex }}
-                      >
-                        <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white ml-0.5" />
-                      </div>
-                      <span className="absolute top-1.5 left-1.5 px-1.5 py-0.2 rounded bg-black/75 text-[9px] font-mono text-white">
-                        {formatTime(track.duration)}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold truncate transition-colors" style={{ color: isPlayingThis ? accentColorHex : textColor }}>
-                        {track.title}
-                      </h4>
-                      <p className="text-[11px] truncate" style={{ color: textMuted }}>
-                        {track.artist}
-                      </p>
-                    </div>
-                  </div>
+      {/* 6. Algorithmic Shelf: "My Supermix" */}
+      {recommendations.supermix.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold tracking-tight" style={{ color: textColor }}>My Supermix</h2>
+              <p className="text-xs" style={{ color: textMuted }}>
+                An endless blend combining your favorite YouTube artists and tailored discoveries
+              </p>
+            </div>
+            <button
+              onClick={() => onPlayTrack(recommendations.supermix[0])}
+              className="px-3.5 py-1.5 rounded-full text-xs font-medium text-white flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+              style={{ backgroundColor: copperAccent }}
+            >
+              <Shuffle className="w-3 h-3" />
+              <span>Shuffle Supermix</span>
+            </button>
+          </div>
 
-                  <div className="mt-2 flex items-center justify-between pt-1 border-t text-[10px]" style={{ borderColor, color: textMuted }}>
-                    <span className="truncate max-w-[80px] sm:max-w-[90px]">{track.genre || 'Trending'}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleLike(track.id);
-                      }}
-                      className="p-1 hover:text-red-500 transition-colors"
-                    >
-                      <Heart className={`w-3.5 h-3.5 ${likedTrackIds.has(track.id) ? 'fill-red-500 text-red-500' : ''}`} />
-                    </button>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            {recommendations.supermix.slice(0, 4).map((track, i) => (
+              <div
+                key={`mix-${track.id}-${i}`}
+                onClick={() => onPlayTrack(track)}
+                className="p-3.5 rounded-2xl border transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+                style={{ backgroundColor: surfaceColor, borderColor }}
+              >
+                <div className="relative aspect-video rounded-xl overflow-hidden bg-neutral-900 mb-3">
+                  <img
+                    src={track.thumbnailUrl}
+                    alt={track.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  />
+                  <div 
+                    className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Play className="w-5 h-5 fill-white text-white ml-0.5" />
                   </div>
                 </div>
-              );
-            })
-          )}
+                <div className="min-w-0">
+                  <h4 className="text-xs font-semibold truncate" style={{ color: textColor }}>{track.title}</h4>
+                  <p className="text-[11px] truncate mt-0.5" style={{ color: textMuted }}>{track.artist}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
