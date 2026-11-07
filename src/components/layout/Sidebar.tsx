@@ -1,12 +1,11 @@
 import React from 'react';
-import { ActiveView, Playlist, AccentColorTheme } from '../../types/media';
+import { ActiveView, Playlist } from '../../types/media';
 import { 
-  Compass, Search, Sliders, HardDrive, 
-  Settings, Music2, Disc, Heart, Film,
-  Home, Youtube
+  Sliders, HardDrive, Settings, Music2, Disc, Heart, 
+  Home, Youtube, Search
 } from 'lucide-react';
-
 import { ThemeConfig } from '../../utils/themeConfig';
+import { motion } from 'framer-motion';
 
 interface SidebarProps {
   activeView: ActiveView;
@@ -66,11 +65,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside 
-      className="hidden md:flex flex-col w-64 select-none shrink-0 h-full transition-colors duration-300"
+      className="hidden md:flex flex-col w-64 select-none shrink-0 h-full transition-colors duration-300 border-r"
       style={{
         backgroundColor: theme?.colors.surface || 'rgba(15, 23, 42, 0.6)',
         borderColor: theme?.colors.border || 'rgba(255, 255, 255, 0.1)',
-        borderRightWidth: '1px',
         color: theme?.colors.text || '#FFFFFF',
       }}
     >
@@ -101,10 +99,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const isActive = activeView === item.id;
 
                 return (
-                  <button
+                  <motion.button
                     key={item.id}
                     onClick={() => onSelectView(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    whileHover={{ x: 3 }}
+                    whileTap={{ scale: 0.97 }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all relative ${
                       isActive
                         ? 'text-white shadow-md'
                         : isLight
@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {item.count}
                       </span>
                     )}
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -141,7 +141,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             Playlists
           </span>
           <div className="space-y-0.5 pt-1">
-            <button
+            <motion.button
+              whileHover={{ x: 3 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => onSelectView('library')}
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
             >
@@ -154,17 +156,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {likedCount}
                 </span>
               )}
-            </button>
+            </motion.button>
 
             {playlists.slice(0, 4).map((pl) => (
-              <button
+              <motion.button
                 key={pl.id}
+                whileHover={{ x: 3 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => onSelectView('library')}
                 className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors truncate"
               >
                 <Disc className="w-4 h-4 text-slate-500 shrink-0" />
                 <span className="truncate">{pl.title}</span>
-              </button>
+              </motion.button>
             ))}
           </div>
         </div>
@@ -178,3 +182,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </aside>
   );
 };
+

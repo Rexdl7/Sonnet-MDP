@@ -27,8 +27,11 @@ import { QueueDrawer } from './components/player/QueueDrawer';
 import { YouTubePlayer } from './components/player/YouTubePlayer';
 
 import { DownloadTrackModal } from './components/common/DownloadTrackModal';
+import { SongCreditsModal } from './components/common/SongCreditsModal';
 import { PWAInstallModal } from './components/common/PWAInstallModal';
 import { THEMES } from './utils/themeConfig';
+
+import { AnimatePresence, motion } from 'framer-motion';
 
 // Views
 import { ExploreView } from './components/views/ExploreView';
@@ -46,8 +49,10 @@ export default function App() {
   const activeTheme = THEMES[settings.appTheme] || THEMES['youtube-music'];
   const accentColorHex = activeTheme.colors.accent;
 
-  // Track download modal state
+  // Track download & credits modal states
   const [downloadTrack, setDownloadTrack] = useState<Track | null>(null);
+  const [creditsTrack, setCreditsTrack] = useState<Track | null>(null);
+  const [historyQueue, setHistoryQueue] = useState<Track[]>([]);
 
   // Audio Quality Badge display
   const qualityBadge = 
@@ -304,8 +309,9 @@ export default function App() {
     setDuration(track.duration || 180);
     setIsPlaying(true);
 
-    // Track played history to avoid repeated songs
+    // Track played history to avoid repeated songs & display in session history
     playedTrackIdsRef.current.add(track.id);
+    setHistoryQueue((prev) => [track, ...prev.filter((t) => t.id !== track.id)]);
 
     const isYT = track.source === 'youtube' || !!track.youtubeId;
 
@@ -634,132 +640,157 @@ export default function App() {
           onLogout={logout}
         />
 
-        {/* Viewport Content Stage */}
+        {/* Viewport Content Stage with Framer Motion Fluid Tab Transitions */}
         <main className="flex-1 overflow-hidden relative">
-          {isLyricsOpen ? (
-            <SyncedLyricsView
-              track={currentTrack}
-              currentTime={currentTime}
-              onSeek={handleSeek}
-              onClose={() => setIsLyricsOpen(false)}
-              accentColorHex={accentColorHex}
-            />
-          ) : (
-            <>
-              {activeView === 'explore' && (
-                <ExploreView
-                  onPlayTrack={playTrack}
-                  onOpenLyrics={(track) => {
-                    playTrack(track);
-                    setIsLyricsOpen(true);
-                    window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
-                  }}
-                  onDownloadTrack={(track) => {
-                    setDownloadTrack(track);
-                    window.history.pushState({ view: activeView, modal: 'download' }, '');
-                  }}
-                  onOpenVideo={(track) => {
-                    playTrack(track);
-                    navigateToView('video');
-                  }}
-                  currentTrack={currentTrack}
-                  currentTrackId={currentTrack?.id}
-                  likedTrackIds={likedTrackIds}
-                  onToggleLike={handleToggleLike}
-                  onSwitchView={navigateToView}
-                  accentColorHex={accentColorHex}
-                />
-              )}
-
-              {activeView === 'search' && (
-                <SearchView
-                  onPlayTrack={playTrack}
-                  onAddToQueue={handleAddToQueue}
-                  onOpenLyrics={(track) => {
-                    playTrack(track);
-                    setIsLyricsOpen(true);
-                    window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
-                  }}
-                  onOpenVideo={(track) => {
-                    playTrack(track);
-                    navigateToView('video');
-                  }}
-                  onDownloadTrack={(track) => {
-                    setDownloadTrack(track);
-                    window.history.pushState({ view: activeView, modal: 'download' }, '');
-                  }}
-                  currentTrackId={currentTrack?.id}
-                  likedTrackIds={likedTrackIds}
-                  onToggleLike={handleToggleLike}
-                  accentColorHex={accentColorHex}
-                  query={searchQuery}
-                  onQueryChange={(q) => setSearchQuery(q)}
-                />
-              )}
-
-              {activeView === 'video' && (
-                <VideoTheatreView
-                  currentTrack={currentTrack}
-                  isPlaying={isPlaying}
-                  onTogglePlay={togglePlay}
-                  onNextTrack={handleNextTrack}
-                  onPrevTrack={handlePrevTrack}
+          <AnimatePresence mode="wait">
+            {isLyricsOpen ? (
+              <motion.div
+                key="lyrics"
+                initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -15, scale: 0.98 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                className="h-full w-full"
+              >
+                <SyncedLyricsView
+                  track={currentTrack}
                   currentTime={currentTime}
-                  duration={duration}
                   onSeek={handleSeek}
-                  queue={userQueue.length > 0 ? userQueue : radioQueue}
-                  onPlayTrack={playTrack}
-                  onOpenLyrics={() => {
-                    setIsLyricsOpen(true);
-                    window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
-                  }}
-                  onSetPipMode={() => {
-                    setVideoMode('pip');
-                    navigateToView('explore');
-                  }}
-                  onDownloadTrack={(track) => {
-                    setDownloadTrack(track);
-                    window.history.pushState({ view: activeView, modal: 'download' }, '');
-                  }}
-                  onSaveToInternalStorage={handleSaveToInternalStorage}
+                  onClose={() => setIsLyricsOpen(false)}
                   accentColorHex={accentColorHex}
                 />
-              )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key={activeView}
+                initial={{ opacity: 0, y: 12, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -12, scale: 0.985 }}
+                transition={{
+                  type: 'spring',
+                  stiffness: 380,
+                  damping: 32,
+                }}
+                className="h-full w-full"
+              >
+                {activeView === 'explore' && (
+                  <ExploreView
+                    onPlayTrack={playTrack}
+                    onOpenLyrics={(track) => {
+                      playTrack(track);
+                      setIsLyricsOpen(true);
+                      window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
+                    }}
+                    onDownloadTrack={(track) => {
+                      setDownloadTrack(track);
+                      window.history.pushState({ view: activeView, modal: 'download' }, '');
+                    }}
+                    onOpenVideo={(track) => {
+                      playTrack(track);
+                      navigateToView('video');
+                    }}
+                    currentTrack={currentTrack}
+                    currentTrackId={currentTrack?.id}
+                    likedTrackIds={likedTrackIds}
+                    onToggleLike={handleToggleLike}
+                    onSwitchView={navigateToView}
+                    accentColorHex={accentColorHex}
+                    theme={activeTheme}
+                  />
+                )}
 
-              {activeView === 'equalizer' && (
-                <EqualizerView isPlaying={isPlaying} accentColorHex={accentColorHex} />
-              )}
+                {activeView === 'search' && (
+                  <SearchView
+                    onPlayTrack={playTrack}
+                    onAddToQueue={handleAddToQueue}
+                    onOpenLyrics={(track) => {
+                      playTrack(track);
+                      setIsLyricsOpen(true);
+                      window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
+                    }}
+                    onOpenVideo={(track) => {
+                      playTrack(track);
+                      navigateToView('video');
+                    }}
+                    onDownloadTrack={(track) => {
+                      setDownloadTrack(track);
+                      window.history.pushState({ view: activeView, modal: 'download' }, '');
+                    }}
+                    onOpenCredits={setCreditsTrack}
+                    currentTrackId={currentTrack?.id}
+                    likedTrackIds={likedTrackIds}
+                    onToggleLike={handleToggleLike}
+                    accentColorHex={accentColorHex}
+                    query={searchQuery}
+                    onQueryChange={(q) => setSearchQuery(q)}
+                    theme={activeTheme}
+                  />
+                )}
 
-              {activeView === 'settings' && (
-                <SettingsView
-                  settings={settings}
-                  onUpdateSettings={setSettings}
-                  accentColorHex={accentColorHex}
-                  onOpenAppModal={() => {
-                    setIsPwaModalOpen(true);
-                    window.history.pushState({ view: activeView, modal: 'pwa' }, '');
-                  }}
-                />
-              )}
+                {activeView === 'video' && (
+                  <VideoTheatreView
+                    currentTrack={currentTrack}
+                    isPlaying={isPlaying}
+                    onTogglePlay={togglePlay}
+                    onNextTrack={handleNextTrack}
+                    onPrevTrack={handlePrevTrack}
+                    currentTime={currentTime}
+                    duration={duration}
+                    onSeek={handleSeek}
+                    queue={userQueue.length > 0 ? userQueue : radioQueue}
+                    onPlayTrack={playTrack}
+                    onOpenLyrics={() => {
+                      setIsLyricsOpen(true);
+                      window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
+                    }}
+                    onSetPipMode={() => {
+                      setVideoMode('pip');
+                      navigateToView('explore');
+                    }}
+                    onDownloadTrack={(track) => {
+                      setDownloadTrack(track);
+                      window.history.pushState({ view: activeView, modal: 'download' }, '');
+                    }}
+                    onSaveToInternalStorage={handleSaveToInternalStorage}
+                    accentColorHex={accentColorHex}
+                  />
+                )}
 
-              {activeView === 'library' && (
-                <LibraryView
-                  localTracks={localTracks}
-                  onAddLocalTrack={handleAddLocalTrack}
-                  onRemoveLocalTrack={handleRemoveLocalTrack}
-                  onPlayTrack={playTrack}
-                  likedTrackIds={likedTrackIds}
-                  onToggleLike={handleToggleLike}
-                  playlists={playlists}
-                  onCreatePlaylist={handleCreatePlaylist}
-                  currentTrackId={currentTrack?.id}
-                  accentColorHex={accentColorHex}
-                  offlineItems={offlineItems}
-                  onRemoveOfflineItem={handleRemoveOfflineItem}
-                />
-              )}
-            </>
-          )}
+                {activeView === 'equalizer' && (
+                  <EqualizerView isPlaying={isPlaying} accentColorHex={accentColorHex} />
+                )}
+
+                {activeView === 'settings' && (
+                  <SettingsView
+                    settings={settings}
+                    onUpdateSettings={setSettings}
+                    accentColorHex={accentColorHex}
+                    onOpenAppModal={() => {
+                      setIsPwaModalOpen(true);
+                      window.history.pushState({ view: activeView, modal: 'pwa' }, '');
+                    }}
+                  />
+                )}
+
+                {activeView === 'library' && (
+                  <LibraryView
+                    localTracks={localTracks}
+                    onAddLocalTrack={handleAddLocalTrack}
+                    onRemoveLocalTrack={handleRemoveLocalTrack}
+                    onPlayTrack={playTrack}
+                    likedTrackIds={likedTrackIds}
+                    onToggleLike={handleToggleLike}
+                    playlists={playlists}
+                    onCreatePlaylist={handleCreatePlaylist}
+                    currentTrackId={currentTrack?.id}
+                    accentColorHex={accentColorHex}
+                    offlineItems={offlineItems}
+                    onRemoveOfflineItem={handleRemoveOfflineItem}
+                  />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </main>
 
         {/* Mobile Mini Player Docked Above Tabs */}
@@ -780,6 +811,7 @@ export default function App() {
           activeView={activeView}
           onSelectView={navigateToView}
           accentColorHex={accentColorHex}
+          theme={activeTheme}
         />
 
         {/* Desktop Floating Player Bar */}
@@ -827,10 +859,11 @@ export default function App() {
             onToggleLike={() => currentTrack && handleToggleLike(currentTrack.id)}
             onOpenEqualizer={() => navigateToView('equalizer')}
             onOpenVideo={() => navigateToView('video')}
-            onOpenDownload={(track) => {
+            onOpenDownload={(track: Track) => {
               setDownloadTrack(track);
               window.history.pushState({ view: activeView, modal: 'download' }, '');
             }}
+            onOpenCredits={setCreditsTrack}
             qualityBadge={qualityBadge}
             isVideoActive={activeView === 'video'}
             accentColorHex={accentColorHex}
@@ -872,6 +905,7 @@ export default function App() {
           setIsMobileSheetOpen(false);
         }}
         accentColorHex={accentColorHex}
+        theme={activeTheme}
       />
 
       {/* Up Next Queue & Infinite Vibe Radio Drawer */}
@@ -880,6 +914,7 @@ export default function App() {
         onClose={() => setIsQueueOpen(false)}
         userQueue={userQueue}
         radioQueue={radioQueue}
+        historyQueue={historyQueue}
         autoplayRadio={autoplayRadio}
         onToggleAutoplayRadio={() => setAutoplayRadio((prev) => !prev)}
         onRefreshRadio={() => currentTrack && fetchSimilarVibeTracks(currentTrack)}
@@ -889,7 +924,18 @@ export default function App() {
         onRemoveFromQueue={handleRemoveFromQueue}
         onClearQueue={() => setUserQueue([])}
         onMoveQueueItem={handleMoveQueueItem}
+        onOpenCredits={setCreditsTrack}
         accentColorHex={accentColorHex}
+        theme={activeTheme}
+      />
+
+      {/* Song Credits & Specs Modal */}
+      <SongCreditsModal
+        isOpen={!!creditsTrack}
+        track={creditsTrack}
+        onClose={() => setCreditsTrack(null)}
+        accentColorHex={accentColorHex}
+        theme={activeTheme}
       />
 
       {/* High Quality Audio & Video Downloader Modal */}

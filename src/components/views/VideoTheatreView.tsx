@@ -8,6 +8,7 @@ import {
 import { Track, OfflineStoredItem } from '../../types/media';
 import { formatTime } from '../../utils/lyricsParser';
 import { DownloadModal } from '../common/DownloadModal';
+import { AmbientArtworkGlowCanvas } from '../player/AmbientArtworkGlowCanvas';
 
 interface VideoTheatreViewProps {
   currentTrack: Track | null;
@@ -184,16 +185,28 @@ export const VideoTheatreView: React.FC<VideoTheatreViewProps> = ({
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left Column: Player Canvas & Video Actions (2 cols on desktop) */}
         <div className="xl:col-span-2 space-y-4">
-          {/* Responsive YouTube Embed Player Canvas */}
-          <div className={`w-full mx-auto rounded-3xl overflow-hidden bg-black shadow-2xl border border-white/10 transition-all duration-300 ${aspectClass}`}>
-            <iframe
-              key={youtubeId}
-              src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&controls=1&modestbranding=1&rel=0&playsinline=1`}
-              title={currentTrack?.title || 'YouTube Video'}
-              className="w-full h-full border-0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
+          {/* Responsive YouTube Embed Player Canvas with Ambient Audio Glow */}
+          <div className="relative w-full">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+              <AmbientArtworkGlowCanvas
+                thumbnailUrl={currentTrack?.thumbnailUrl}
+                isPlaying={isPlaying}
+                accentColorHex={accentColorHex}
+                className="w-full h-full scale-110"
+                glowScale={1.6}
+              />
+            </div>
+
+            <div className={`relative z-10 w-full mx-auto rounded-3xl overflow-hidden bg-black shadow-2xl border border-white/10 transition-all duration-300 ${aspectClass}`}>
+              <iframe
+                key={youtubeId}
+                src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&controls=1&modestbranding=1&rel=0&playsinline=1`}
+                title={currentTrack?.title || 'YouTube Video'}
+                className="w-full h-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
           </div>
 
           {/* Under-Video Details & Download Bar */}

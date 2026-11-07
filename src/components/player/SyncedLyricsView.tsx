@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Track, LyricLine } from '../../types/media';
 import { parseLrcLyrics, getActiveLyricIndex, formatTime } from '../../utils/lyricsParser';
 import { Mic2, Music, Sparkles, ArrowLeft } from 'lucide-react';
+import { AmbientArtworkGlowCanvas } from './AmbientArtworkGlowCanvas';
 
 interface SyncedLyricsViewProps {
   track: Track | null;
@@ -83,11 +84,22 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
-          <img
-            src={track.thumbnailUrl}
-            alt={track.title}
-            className="w-12 h-12 rounded-xl object-cover shadow-xl shrink-0 border border-white/15"
-          />
+          <div className="relative shrink-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+              <AmbientArtworkGlowCanvas
+                thumbnailUrl={track.thumbnailUrl}
+                isPlaying={true}
+                accentColorHex={accentColorHex}
+                className="w-20 h-20"
+                glowScale={1.4}
+              />
+            </div>
+            <img
+              src={track.thumbnailUrl}
+              alt={track.title}
+              className="relative z-10 w-12 h-12 rounded-xl object-cover shadow-xl shrink-0 border border-white/15"
+            />
+          </div>
           <div className="min-w-0">
             <h2 className="text-base font-bold text-white truncate">{track.title}</h2>
             <p className="text-xs text-slate-400 truncate">{track.artist} · {track.album}</p>

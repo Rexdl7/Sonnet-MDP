@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Track, Playlist, ActiveView } from '../../types/media';
 import { INITIAL_TRACKS, INITIAL_PLAYLISTS } from '../../data/curatedTracks';
 import { formatTime } from '../../utils/lyricsParser';
+import { ThemeConfig } from '../../utils/themeConfig';
 import { 
   Play, Sparkles, Flame, Heart, Radio, 
   Music, Download, Film, Youtube, Plus, Compass,
   TrendingUp, Headphones, Sliders, Disc3, Shuffle,
-  Volume2, RefreshCw, Zap
+  Volume2, RefreshCw, Zap, Info, Library, ListMusic
 } from 'lucide-react';
 
 interface ExploreViewProps {
@@ -15,12 +16,16 @@ interface ExploreViewProps {
   onSelectPlaylist?: (playlist: Playlist) => void;
   onDownloadTrack?: (track: Track) => void;
   onOpenVideo?: (track: Track) => void;
+  onOpenCredits?: (track: Track) => void;
   currentTrack?: Track | null;
   currentTrackId?: string;
   likedTrackIds: Set<string>;
   onToggleLike: (trackId: string) => void;
   onSwitchView: (view: ActiveView) => void;
   accentColorHex?: string;
+  theme?: ThemeConfig;
+  smartShuffle?: boolean;
+  onToggleSmartShuffle?: () => void;
 }
 
 export const ExploreView: React.FC<ExploreViewProps> = ({
@@ -29,16 +34,29 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onSelectPlaylist,
   onDownloadTrack,
   onOpenVideo,
+  onOpenCredits,
   currentTrack,
   currentTrackId,
   likedTrackIds,
   onToggleLike,
   onSwitchView,
   accentColorHex = '#FF0000',
+  theme,
+  smartShuffle = false,
+  onToggleSmartShuffle,
 }) => {
   const [selectedMood, setSelectedMood] = useState<string>('All');
   const [selectedTrendingCategory, setSelectedTrendingCategory] = useState<string>('charts');
   
+  // Theme contrast variables
+  const isLight = theme?.category === 'light';
+  const bgColor = theme?.colors.bg || (isLight ? '#F8FAFC' : '#030303');
+  const surfaceColor = theme?.colors.surface || (isLight ? '#FFFFFF' : '#121212');
+  const surfaceHover = theme?.colors.surfaceHover || (isLight ? '#F1F5F9' : '#1F1F1F');
+  const textColor = theme?.colors.text || (isLight ? '#0F172A' : '#FFFFFF');
+  const textMuted = theme?.colors.textMuted || (isLight ? '#64748B' : '#94A3B8');
+  const borderColor = theme?.colors.border || (isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)');
+
   // Location and country-specific chart state
   const [userCountry, setUserCountry] = useState<{ code: string; name: string; flag: string }>(() => {
     try {
@@ -66,6 +84,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     { id: 'rock', label: 'Rock & Alternative' },
   ];
 
+  // Spotify Made For You Mixes
+  const spotifyDailyMixes = [
+    { id: 'mix-1', title: 'Daily Mix 1', genre: 'Chill R&B & Soul', color: '#E11D48', cover: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80' },
+    { id: 'mix-2', title: 'Daily Mix 2', genre: 'Hip-Hop Hotlist', color: '#8B5CF6', cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80' },
+    { id: 'mix-3', title: 'Daily Mix 3', genre: 'Pop & Dance Anthems', color: '#10B981', cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=400&q=80' },
+    { id: 'mix-4', title: 'Daily Mix 4', genre: 'Lo-Fi Coffee Study', color: '#F59E0B', cover: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=400&q=80' },
+  ];
+
   const availableCountries = [
     { code: 'GLOBAL', name: 'Global Charts', flag: '🌐' },
     { code: 'IN', name: 'India', flag: '🇮🇳' },
@@ -84,7 +110,6 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     const saved = localStorage.getItem('sonnet_music_country');
     if (saved) return;
 
-    // Detect via server edge headers or browser timezone
     const detectLocation = async () => {
       try {
         const res = await fetch('/api/location/detect');
@@ -101,27 +126,6 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             return;
           }
         }
-      } catch {}
-
-      // Fallback: Infer from Intl timezone
-      try {
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-        let matched = { code: 'GLOBAL', name: 'Global Charts', flag: '🌐' };
-        if (tz.includes('Calcutta') || tz.includes('Kolkata')) {
-          matched = { code: 'IN', name: 'India', flag: '🇮🇳' };
-        } else if (tz.includes('New_York') || tz.includes('Los_Angeles') || tz.includes('Chicago')) {
-          matched = { code: 'US', name: 'United States', flag: '🇺🇸' };
-        } else if (tz.includes('London')) {
-          matched = { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' };
-        } else if (tz.includes('Tokyo')) {
-          matched = { code: 'JP', name: 'Japan', flag: '🇯🇵' };
-        } else if (tz.includes('Seoul')) {
-          matched = { code: 'KR', name: 'South Korea', flag: '🇰🇷' };
-        } else if (tz.includes('Sao_Paulo')) {
-          matched = { code: 'BR', name: 'Brazil', flag: '🇧🇷' };
-        }
-        setUserCountry(matched);
-        localStorage.setItem('sonnet_music_country', JSON.stringify(matched));
       } catch {}
     };
 
@@ -169,6 +173,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               genre: heroTrack.genre || 'Popular',
             },
             history: recentTracks.map((t) => `${t.title} - ${t.artist}`),
+            mood: selectedMood,
           }),
         });
         if (res.ok) {
@@ -185,7 +190,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     };
 
     fetchAiRecommendations();
-  }, [heroTrack.id, heroTrack.title]);
+  }, [heroTrack.id, heroTrack.title, selectedMood]);
 
   // Handle Mood Filter Clicks
   const handleMoodClick = async (mood: string) => {
@@ -218,7 +223,13 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   };
 
   return (
-    <div className="h-full overflow-y-auto px-3 py-4 sm:px-6 sm:py-6 md:p-8 space-y-6 md:space-y-8 select-none bg-[#030303] text-white pb-36 md:pb-12">
+    <div 
+      className="h-full overflow-y-auto px-3 py-4 sm:px-6 sm:py-6 md:p-8 space-y-6 md:space-y-8 select-none pb-36 md:pb-12 transition-colors duration-300"
+      style={{
+        backgroundColor: bgColor,
+        color: textColor,
+      }}
+    >
       {/* 1. Country / Region Selector & Mood Chips Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Mood Chips Scroller */}
@@ -231,9 +242,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                 onClick={() => handleMoodClick(mood)}
                 className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all active:scale-95 ${
                   isSelected
-                    ? 'bg-white text-black font-bold shadow-md'
-                    : 'bg-[#212121] hover:bg-[#303030] text-slate-300 border border-white/10'
+                    ? 'text-white font-bold shadow-md'
+                    : 'border transition-colors'
                 }`}
+                style={{
+                  backgroundColor: isSelected ? accentColorHex : surfaceColor,
+                  borderColor: isSelected ? accentColorHex : borderColor,
+                  color: isSelected ? '#FFFFFF' : textColor,
+                }}
               >
                 {mood}
               </button>
@@ -241,59 +257,99 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           })}
         </div>
 
-        {/* Location Region Selector Pill */}
-        <div className="relative shrink-0 self-start sm:self-center">
-          <button
-            onClick={() => setIsCountryPickerOpen((prev) => !prev)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#1a1a1a] hover:bg-[#282828] text-slate-200 border border-white/10 transition-colors shadow-sm"
-            title="Change music chart country"
-          >
-            <span className="text-base leading-none">{userCountry.flag}</span>
-            <span className="font-bold text-white max-w-[110px] truncate">{userCountry.name}</span>
-            <span className="text-[10px] text-slate-400">Charts ▼</span>
-          </button>
-
-          {isCountryPickerOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-2xl bg-[#181818] border border-white/15 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Select Chart Region
-              </div>
-              <div className="max-h-60 overflow-y-auto space-y-0.5">
-                {availableCountries.map((c) => (
-                  <button
-                    key={c.code}
-                    onClick={() => handleSelectCountry(c)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left ${
-                      userCountry.code === c.code
-                        ? 'bg-red-600/20 text-white font-bold border border-red-500/30'
-                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <span>{c.flag}</span>
-                      <span className="truncate">{c.name}</span>
-                    </span>
-                    {userCountry.code === c.code && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Location Region Selector Pill & Spotify Smart Shuffle Button */}
+        <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+          {onToggleSmartShuffle && (
+            <button
+              onClick={onToggleSmartShuffle}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                smartShuffle ? 'text-white font-bold shadow-md' : ''
+              }`}
+              style={{
+                backgroundColor: smartShuffle ? '#1DB954' : surfaceColor,
+                borderColor: smartShuffle ? '#1DB954' : borderColor,
+                color: smartShuffle ? '#FFFFFF' : textColor,
+              }}
+              title="Spotify Smart Shuffle (weaves personalized AI tracks into queue)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden sm:inline">Smart Shuffle</span>
+            </button>
           )}
+
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setIsCountryPickerOpen((prev) => !prev)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors shadow-sm"
+              style={{
+                backgroundColor: surfaceColor,
+                borderColor: borderColor,
+                color: textColor,
+              }}
+              title="Change music chart country"
+            >
+              <span className="text-base leading-none">{userCountry.flag}</span>
+              <span className="font-bold max-w-[110px] truncate">{userCountry.name}</span>
+              <span className="text-[10px]" style={{ color: textMuted }}>Charts ▼</span>
+            </button>
+
+            {isCountryPickerOpen && (
+              <div 
+                className="absolute right-0 mt-2 w-48 rounded-2xl border shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150"
+                style={{
+                  backgroundColor: surfaceColor,
+                  borderColor: borderColor,
+                  color: textColor,
+                }}
+              >
+                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider" style={{ color: textMuted }}>
+                  Select Chart Region
+                </div>
+                <div className="max-h-60 overflow-y-auto space-y-0.5">
+                  {availableCountries.map((c) => (
+                    <button
+                      key={c.code}
+                      onClick={() => handleSelectCountry(c)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left ${
+                        userCountry.code === c.code ? 'font-bold' : ''
+                      }`}
+                      style={{
+                        backgroundColor: userCountry.code === c.code ? `${accentColorHex}20` : 'transparent',
+                        color: userCountry.code === c.code ? accentColorHex : textColor,
+                      }}
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <span>{c.flag}</span>
+                        <span className="truncate">{c.name}</span>
+                      </span>
+                      {userCountry.code === c.code && (
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: accentColorHex }} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 2. Hero Spotlight Banner (Dynamic Ambient Glow & Responsive Mobile Layout) */}
-      <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden p-4 sm:p-6 md:p-8 border border-white/10 shadow-2xl bg-gradient-to-r from-red-950/40 via-black to-[#121212] group">
+      {/* 2. Hero Spotlight Banner (Dynamic Adaptive Light/Dark Card) */}
+      <div 
+        className="relative rounded-2xl sm:rounded-3xl overflow-hidden p-4 sm:p-6 md:p-8 border shadow-xl group transition-colors"
+        style={{
+          backgroundColor: isLight ? '#FFFFFF' : '#0B0B0C',
+          borderColor: borderColor,
+        }}
+      >
         <div 
-          className="absolute -right-20 -top-20 w-80 h-80 rounded-full blur-3xl opacity-25 pointer-events-none transition-all duration-700"
+          className="absolute -right-20 -top-20 w-80 h-80 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-700"
           style={{ backgroundColor: accentColorHex }}
         />
 
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
           <div className="flex items-center gap-3.5 sm:gap-5 w-full md:w-auto">
-            <div className="relative w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl shrink-0 group-hover:scale-105 transition-transform duration-300 bg-neutral-900">
+            <div className="relative w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl shrink-0 group-hover:scale-105 transition-transform duration-300 bg-neutral-800">
               <img
                 src={heroTrack.thumbnailUrl}
                 alt={heroTrack.title}
@@ -314,21 +370,28 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
             <div className="space-y-1 min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/10 text-white/90 border border-white/10 flex items-center gap-1 w-max">
-                  <Flame className="w-3 h-3 text-red-500 fill-red-500" />
-                  <span>{userCountry.flag} Trending #1</span>
+                <span 
+                  className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full border flex items-center gap-1 w-max"
+                  style={{
+                    backgroundColor: `${accentColorHex}15`,
+                    borderColor: `${accentColorHex}30`,
+                    color: accentColorHex,
+                  }}
+                >
+                  <Flame className="w-3 h-3 fill-current" />
+                  <span>{userCountry.flag} Spotlight #1</span>
                 </span>
-                <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+                <span className="text-[10px] font-medium hidden sm:inline" style={{ color: textMuted }}>
                   {userCountry.name} Chart
                 </span>
               </div>
-              <h1 className="text-base sm:text-2xl md:text-3xl font-extrabold tracking-tight text-white truncate">
+              <h1 className="text-base sm:text-2xl md:text-3xl font-extrabold tracking-tight truncate" style={{ color: textColor }}>
                 {heroTrack.title}
               </h1>
-              <p className="text-xs sm:text-sm font-medium text-slate-300 flex items-center gap-1.5 truncate">
+              <p className="text-xs sm:text-sm font-medium flex items-center gap-1.5 truncate" style={{ color: textMuted }}>
                 <span className="truncate">{heroTrack.artist}</span>
                 <span>&bull;</span>
-                <span className="text-slate-400 shrink-0">{heroTrack.genre || 'Trending'}</span>
+                <span className="shrink-0">{heroTrack.genre || 'Trending'}</span>
               </p>
               <div className="flex items-center gap-2 sm:gap-3 pt-1.5 flex-wrap">
                 <button
@@ -342,19 +405,40 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                 {onOpenVideo && (
                   <button
                     onClick={() => onOpenVideo(heroTrack)}
-                    className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-full font-semibold text-xs flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/10 active:scale-95 transition-all"
+                    className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-full font-semibold text-xs flex items-center gap-1.5 border active:scale-95 transition-all"
+                    style={{
+                      backgroundColor: surfaceColor,
+                      borderColor: borderColor,
+                      color: textColor,
+                    }}
                   >
-                    <Film className="w-3.5 h-3.5 text-red-400" />
+                    <Film className="w-3.5 h-3.5 text-red-500" />
                     <span>Watch</span>
+                  </button>
+                )}
+                {onOpenCredits && (
+                  <button
+                    onClick={() => onOpenCredits(heroTrack)}
+                    className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-full font-semibold text-xs flex items-center gap-1.5 border active:scale-95 transition-all"
+                    style={{
+                      backgroundColor: surfaceColor,
+                      borderColor: borderColor,
+                      color: textColor,
+                    }}
+                    title="View Song Credits & Audio Codec Specs"
+                  >
+                    <Info className="w-3.5 h-3.5 text-blue-500" />
+                    <span className="hidden sm:inline">Credits</span>
                   </button>
                 )}
                 <button
                   onClick={() => onToggleLike(heroTrack.id)}
-                  className={`p-2 sm:p-2.5 rounded-full border transition-all ${
-                    likedTrackIds.has(heroTrack.id)
-                      ? 'bg-red-600/20 text-red-500 border-red-500/40'
-                      : 'bg-white/5 text-slate-300 hover:text-white border-white/10'
-                  }`}
+                  className="p-2 sm:p-2.5 rounded-full border transition-all"
+                  style={{
+                    backgroundColor: likedTrackIds.has(heroTrack.id) ? `${accentColorHex}20` : surfaceColor,
+                    borderColor: likedTrackIds.has(heroTrack.id) ? `${accentColorHex}50` : borderColor,
+                    color: likedTrackIds.has(heroTrack.id) ? accentColorHex : textColor,
+                  }}
                   title="Like Song"
                 >
                   <Heart className={`w-3.5 h-3.5 ${likedTrackIds.has(heroTrack.id) ? 'fill-current' : ''}`} />
@@ -365,28 +449,85 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
           {/* Quick Audiophile Equalizer & High-Res Audio Badge */}
           <div className="hidden lg:flex flex-col items-end gap-2 text-right">
-            <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-500/30">
+            <span className="text-[11px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
               Studio Lossless 24-Bit / 96kHz
             </span>
             <button
               onClick={() => onSwitchView('equalizer')}
-              className="text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors"
+              className="text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              style={{ color: textMuted }}
             >
-              <Sliders className="w-3.5 h-3.5 text-red-400" />
+              <Sliders className="w-3.5 h-3.5" style={{ color: accentColorHex }} />
               <span>Customize 10-Band EQ</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 3. Spotify Style "Quick Picks / Top Country Hits" 2x3 Grid */}
+      {/* 3. Spotify Style "Made For You" Mixes Carousel */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
-            <span>Quick Picks & Top Plays</span>
-            <span className="text-[11px] text-slate-500 font-normal hidden sm:inline">Based on {userCountry.name}</span>
+          <h2 className="text-sm sm:text-base font-bold tracking-tight flex items-center gap-2" style={{ color: textColor }}>
+            <span>Made For You</span>
+            <span className="text-[11px] font-normal" style={{ color: textMuted }}>Spotify Personal Mixes</span>
           </h2>
-          <span className="text-[10px] text-slate-400 font-mono">
+          <span className="text-[10px] font-mono" style={{ color: textMuted }}>Daily Mixes</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {spotifyDailyMixes.map((mix) => (
+            <div
+              key={mix.id}
+              onClick={() => {
+                handleMoodClick(mix.genre.split(' ')[0]);
+              }}
+              className="relative p-3 rounded-2xl border transition-all cursor-pointer group shadow-sm flex flex-col justify-between overflow-hidden"
+              style={{
+                backgroundColor: surfaceColor,
+                borderColor: borderColor,
+              }}
+            >
+              <div className="space-y-2">
+                <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-800 shadow-md">
+                  <img
+                    src={mix.cover}
+                    alt={mix.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  />
+                  <div 
+                    className="absolute top-2 left-2 px-2 py-0.5 rounded text-[9px] font-extrabold uppercase text-white shadow-md"
+                    style={{ backgroundColor: mix.color }}
+                  >
+                    {mix.title}
+                  </div>
+                  <div 
+                    className="absolute bottom-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all shadow-xl"
+                    style={{ backgroundColor: mix.color }}
+                  >
+                    <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold truncate" style={{ color: textColor }}>
+                    {mix.title}
+                  </h4>
+                  <p className="text-[11px] truncate" style={{ color: textMuted }}>
+                    {mix.genre}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Spotify Style "Quick Picks / Top Country Hits" 2x3 Grid */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm sm:text-base font-bold tracking-tight flex items-center gap-2" style={{ color: textColor }}>
+            <span>Quick Picks & Favorites</span>
+            <span className="text-[11px] font-normal hidden sm:inline" style={{ color: textMuted }}>Based on {userCountry.name}</span>
+          </h2>
+          <span className="text-[10px] font-mono" style={{ color: textMuted }}>
             {userCountry.flag} Top 6
           </span>
         </div>
@@ -397,10 +538,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               <div
                 key={track.id}
                 onClick={() => onPlayTrack(track)}
-                className="flex items-center justify-between p-2 rounded-xl sm:rounded-2xl bg-[#161616] hover:bg-[#222222] border border-white/5 hover:border-white/15 transition-all cursor-pointer group shadow-sm min-h-[56px]"
+                className="flex items-center justify-between p-2 rounded-xl sm:rounded-2xl border transition-all cursor-pointer group shadow-sm min-h-[56px]"
+                style={{
+                  backgroundColor: surfaceColor,
+                  borderColor: borderColor,
+                }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
-                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl overflow-hidden shrink-0 bg-neutral-900">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl overflow-hidden shrink-0 bg-neutral-800">
                     <img
                       src={track.thumbnailUrl}
                       alt={track.title}
@@ -408,20 +553,30 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h4 className={`text-xs font-bold truncate ${
-                      isPlayingThis ? 'text-red-500' : 'text-white'
-                    }`}>
+                    <h4 className="text-xs font-bold truncate transition-colors" style={{ color: isPlayingThis ? accentColorHex : textColor }}>
                       {track.title}
                     </h4>
-                    <p className="text-[11px] text-slate-400 truncate">
+                    <p className="text-[11px] truncate" style={{ color: textMuted }}>
                       {track.artist}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0 pr-1">
+                  {onOpenCredits && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenCredits(track);
+                      }}
+                      className="p-1 rounded-full text-slate-400 hover:text-blue-500 transition-colors"
+                      title="Song Credits"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <div 
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity shadow-md ml-1"
                     style={{ backgroundColor: accentColorHex }}
                   >
                     <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
@@ -433,20 +588,20 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         </div>
       </div>
 
-      {/* 4. AI Recommended Radio (Powered by Gemini AI) */}
+      {/* 5. AI Recommended Radio (Powered by Gemini 3.8 Flash) */}
       <div className="space-y-3 pt-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                Continuous AI Radio
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-500" />
+                Gemini 3.8 AI Radio
               </span>
-              <h2 className="text-sm sm:text-base md:text-lg font-bold text-white tracking-tight">
+              <h2 className="text-sm sm:text-base md:text-lg font-bold tracking-tight" style={{ color: textColor }}>
                 Recommended For Your Taste
               </h2>
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 truncate">
+            <p className="text-[11px] sm:text-xs mt-0.5 truncate" style={{ color: textMuted }}>
               Continuously tuned by Gemini AI based on vibe: "{heroTrack.title}"
             </p>
           </div>
@@ -457,9 +612,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                 onPlayTrack(aiRecommendations[0]);
               }
             }}
-            className="self-start sm:self-auto px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 bg-[#212121] hover:bg-[#303030] text-slate-200 border border-white/10 active:scale-95 transition-all"
+            className="self-start sm:self-auto px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 border active:scale-95 transition-all shadow-sm"
+            style={{
+              backgroundColor: surfaceColor,
+              borderColor: borderColor,
+              color: textColor,
+            }}
           >
-            <Shuffle className="w-3.5 h-3.5 text-amber-400" />
+            <Shuffle className="w-3.5 h-3.5 text-amber-500" />
             <span>Play Radio</span>
           </button>
         </div>
@@ -468,21 +628,25 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
           {isLoadingAi && aiRecommendations.length === 0 ? (
             Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="p-2.5 sm:p-3 rounded-2xl bg-[#141414] border border-white/5 animate-pulse space-y-2">
-                <div className="aspect-square rounded-xl bg-white/10" />
-                <div className="h-3 rounded bg-white/10 w-3/4" />
-                <div className="h-2.5 rounded bg-white/5 w-1/2" />
+              <div key={i} className="p-2.5 sm:p-3 rounded-2xl border animate-pulse space-y-2" style={{ backgroundColor: surfaceColor, borderColor }}>
+                <div className="aspect-square rounded-xl bg-black/10 dark:bg-white/10" />
+                <div className="h-3 rounded bg-black/10 dark:bg-white/10 w-3/4" />
+                <div className="h-2.5 rounded bg-black/5 dark:bg-white/5 w-1/2" />
               </div>
             ))
           ) : (
-            aiRecommendations.slice(0, 6).map((track) => (
+            aiRecommendations.slice(0, 8).map((track) => (
               <div
                 key={track.id}
                 onClick={() => onPlayTrack(track)}
-                className="p-2.5 sm:p-3 rounded-2xl bg-[#141414] hover:bg-[#202020] border border-white/5 hover:border-white/15 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+                className="p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+                style={{
+                  backgroundColor: surfaceColor,
+                  borderColor: borderColor,
+                }}
               >
                 <div className="space-y-2">
-                  <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-900 shadow-md">
+                  <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-800 shadow-md">
                     <img
                       src={track.thumbnailUrl}
                       alt={track.title}
@@ -496,16 +660,16 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                     </div>
                   </div>
                   <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-white truncate group-hover:text-amber-300 transition-colors">
+                    <h4 className="text-xs font-bold truncate group-hover:text-amber-500 transition-colors" style={{ color: textColor }}>
                       {track.title}
                     </h4>
-                    <p className="text-[11px] text-slate-400 truncate">
+                    <p className="text-[11px] truncate" style={{ color: textMuted }}>
                       {track.artist}
                     </p>
                   </div>
                 </div>
-                <span className="mt-2 text-[9px] font-semibold text-amber-400/90 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-500/20 truncate block text-center">
-                  Vibe Match
+                <span className="mt-2 text-[9px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 truncate block text-center">
+                  {(track as any).aiRecommendationReason || 'Sonic Vibe Match'}
                 </span>
               </div>
             ))
@@ -513,12 +677,12 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         </div>
       </div>
 
-      {/* 5. Top Trending from YouTube Music (Country & Category Driven) */}
+      {/* 6. Top Trending from YouTube Music (Country & Category Driven) */}
       <div className="space-y-3 sm:space-y-4 pt-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-red-500" />
-            <h2 className="text-sm sm:text-base md:text-lg font-bold text-white tracking-tight">
+            <h2 className="text-sm sm:text-base md:text-lg font-bold tracking-tight" style={{ color: textColor }}>
               Top Trending in {userCountry.name}
             </h2>
           </div>
@@ -533,9 +697,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                   onClick={() => setSelectedTrendingCategory(cat.id)}
                   className={`px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold whitespace-nowrap transition-all ${
                     isSelected
-                      ? 'bg-red-600 text-white shadow-md'
-                      : 'bg-[#1a1a1a] hover:bg-[#252525] text-slate-300 border border-white/10'
+                      ? 'text-white shadow-md'
+                      : 'border transition-colors'
                   }`}
+                  style={{
+                    backgroundColor: isSelected ? accentColorHex : surfaceColor,
+                    borderColor: isSelected ? accentColorHex : borderColor,
+                    color: isSelected ? '#FFFFFF' : textColor,
+                  }}
                 >
                   {cat.label}
                 </button>
@@ -548,10 +717,10 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
           {isLoadingTrending ? (
             Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="p-2.5 sm:p-3 rounded-2xl bg-[#141414] border border-white/5 animate-pulse space-y-2">
-                <div className="aspect-square rounded-xl bg-white/10" />
-                <div className="h-3 rounded bg-white/10 w-3/4" />
-                <div className="h-2.5 rounded bg-white/5 w-1/2" />
+              <div key={i} className="p-2.5 sm:p-3 rounded-2xl border animate-pulse space-y-2" style={{ backgroundColor: surfaceColor, borderColor }}>
+                <div className="aspect-square rounded-xl bg-black/10 dark:bg-white/10" />
+                <div className="h-3 rounded bg-black/10 dark:bg-white/10 w-3/4" />
+                <div className="h-2.5 rounded bg-black/5 dark:bg-white/5 w-1/2" />
               </div>
             ))
           ) : (
@@ -561,10 +730,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                 <div
                   key={track.id}
                   onClick={() => onPlayTrack(track)}
-                  className="p-2.5 sm:p-3 rounded-2xl bg-[#141414] hover:bg-[#202020] border border-white/5 hover:border-white/15 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+                  className="p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+                  style={{
+                    backgroundColor: surfaceColor,
+                    borderColor: borderColor,
+                  }}
                 >
                   <div className="space-y-2">
-                    <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-900 shadow-md">
+                    <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-800 shadow-md">
                       <img
                         src={track.thumbnailUrl}
                         alt={track.title}
@@ -581,25 +754,23 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                       </span>
                     </div>
                     <div className="min-w-0">
-                      <h4 className={`text-xs font-bold truncate transition-colors ${
-                        isPlayingThis ? 'text-red-500' : 'text-white group-hover:text-red-400'
-                      }`}>
+                      <h4 className="text-xs font-bold truncate transition-colors" style={{ color: isPlayingThis ? accentColorHex : textColor }}>
                         {track.title}
                       </h4>
-                      <p className="text-[11px] text-slate-400 truncate">
+                      <p className="text-[11px] truncate" style={{ color: textMuted }}>
                         {track.artist}
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-2 flex items-center justify-between pt-1 border-t border-white/5 text-[10px] text-slate-500">
+                  <div className="mt-2 flex items-center justify-between pt-1 border-t text-[10px]" style={{ borderColor, color: textMuted }}>
                     <span className="truncate max-w-[80px] sm:max-w-[90px]">{track.genre || 'Trending'}</span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onToggleLike(track.id);
                       }}
-                      className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                      className="p-1 hover:text-red-500 transition-colors"
                     >
                       <Heart className={`w-3.5 h-3.5 ${likedTrackIds.has(track.id) ? 'fill-red-500 text-red-500' : ''}`} />
                     </button>
