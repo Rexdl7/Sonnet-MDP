@@ -8,6 +8,7 @@ import { Track, ActiveView, PlaybackRepeatMode, Playlist, AppSettings, OfflineSt
 import { INITIAL_TRACKS, INITIAL_PLAYLISTS, DEFAULT_SETTINGS } from './data/curatedTracks';
 import { audioEngine } from './services/audioEngine';
 import { useFirebaseAuth } from './hooks/useFirebaseAuth';
+import { useDominantColor } from './hooks/useDominantColor';
 import { 
   syncUserLibrary, 
   subscribeUserLibrary, 
@@ -51,6 +52,12 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const activeTheme = THEMES[settings.appTheme] || THEMES['natural-studio'] || THEMES['youtube-music'];
   const accentColorHex = activeTheme.colors.accent;
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(console.error);
+    }
+  }, []);
 
   // Track download & credits modal states
   const [downloadTrack, setDownloadTrack] = useState<Track | null>(null);
@@ -115,6 +122,8 @@ export default function App() {
     loginWithGoogle, 
     logout 
   } = useFirebaseAuth();
+
+  const dominantColor = useDominantColor(currentTrack?.thumbnailUrl);
 
   // In-App Offline Media Storage
   const [offlineItems, setOfflineItems] = useState<OfflineStoredItem[]>(() => {
@@ -608,6 +617,7 @@ export default function App() {
       {/* YouTube IFrame Player (Handles both video display and background audio streaming) */}
       <YouTubePlayer
         currentTrack={currentTrack}
+        nextTrack={userQueue.length > 0 ? userQueue[0] : (autoplayRadio ? radioQueue[0] : null)}
         isPlaying={isPlaying}
         volume={volume}
         isMuted={isMuted}
@@ -697,164 +707,175 @@ export default function App() {
         />
 
         {/* Viewport Content Stage with Framer Motion Fluid Tab Transitions */}
-        <main className="flex-1 overflow-hidden relative">
-          <AnimatePresence mode="wait">
-            {isLyricsOpen ? (
-              <motion.div
-                key="lyrics"
-                initial={{ opacity: 0, y: 15, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -15, scale: 0.98 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="h-full w-full"
-              >
-                <SyncedLyricsView
-                  track={currentTrack}
-                  currentTime={currentTime}
-                  onSeek={handleSeek}
-                  onClose={() => setIsLyricsOpen(false)}
-                  accentColorHex={accentColorHex}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key={activeView}
-                initial={{ opacity: 0, y: 12, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -12, scale: 0.985 }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 380,
-                  damping: 32,
-                }}
-                className="h-full w-full"
-              >
-                {activeView === 'explore' && (
-                  <ExploreView
-                    onPlayTrack={playTrack}
-                    onOpenLyrics={(track) => {
-                      playTrack(track);
-                      setIsLyricsOpen(true);
-                      window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
-                    }}
-                    onDownloadTrack={(track) => {
-                      setDownloadTrack(track);
-                      window.history.pushState({ view: activeView, modal: 'download' }, '');
-                    }}
-                    onOpenVideo={(track) => {
-                      playTrack(track);
-                      navigateToView('video');
-                    }}
-                    currentTrack={currentTrack}
-                    currentTrackId={currentTrack?.id}
-                    likedTrackIds={likedTrackIds}
-                    onToggleLike={handleToggleLike}
-                    onSwitchView={navigateToView}
-                    accentColorHex={accentColorHex}
-                    theme={activeTheme}
-                    user={currentUser}
-                    historyQueue={listeningHistory}
-                    youtubeLikedTracks={youtubeLikedTracks}
-                    isYouTubeSynced={isYouTubeSynced}
-                    onOpenAuthModal={() => setIsAuthModalOpen(true)}
-                  />
-                )}
-
-                {activeView === 'search' && (
-                  <SearchView
-                    onPlayTrack={playTrack}
-                    onAddToQueue={handleAddToQueue}
-                    onOpenLyrics={(track) => {
-                      playTrack(track);
-                      setIsLyricsOpen(true);
-                      window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
-                    }}
-                    onOpenVideo={(track) => {
-                      playTrack(track);
-                      navigateToView('video');
-                    }}
-                    onDownloadTrack={(track) => {
-                      setDownloadTrack(track);
-                      window.history.pushState({ view: activeView, modal: 'download' }, '');
-                    }}
-                    onOpenCredits={setCreditsTrack}
-                    currentTrackId={currentTrack?.id}
-                    likedTrackIds={likedTrackIds}
-                    onToggleLike={handleToggleLike}
-                    accentColorHex={accentColorHex}
-                    query={searchQuery}
-                    onQueryChange={(q) => setSearchQuery(q)}
-                    theme={activeTheme}
-                  />
-                )}
-
-                {activeView === 'video' && (
-                  <VideoTheatreView
-                    currentTrack={currentTrack}
-                    isPlaying={isPlaying}
-                    onTogglePlay={togglePlay}
-                    onNextTrack={handleNextTrack}
-                    onPrevTrack={handlePrevTrack}
+        <main 
+          className="flex-1 overflow-hidden relative"
+        >
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: dominantColor ? `linear-gradient(to bottom, ${dominantColor}15, ${activeTheme.colors.bg})` : activeTheme.colors.bg,
+              backdropFilter: 'blur(30px)',
+            }}
+          />
+          <div className="relative z-10 h-full w-full">
+            <AnimatePresence mode="wait">
+              {isLyricsOpen ? (
+                <motion.div
+                  key="lyrics"
+                  initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -15, scale: 0.98 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  className="h-full w-full"
+                >
+                  <SyncedLyricsView
+                    track={currentTrack}
                     currentTime={currentTime}
-                    duration={duration}
                     onSeek={handleSeek}
-                    queue={userQueue.length > 0 ? userQueue : radioQueue}
-                    onPlayTrack={playTrack}
-                    onOpenLyrics={() => {
-                      setIsLyricsOpen(true);
-                      window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
-                    }}
-                    onSetPipMode={() => {
-                      setVideoMode('pip');
-                      navigateToView('explore');
-                    }}
-                    onDownloadTrack={(track) => {
-                      setDownloadTrack(track);
-                      window.history.pushState({ view: activeView, modal: 'download' }, '');
-                    }}
-                    onSaveToInternalStorage={handleSaveToInternalStorage}
+                    onClose={() => setIsLyricsOpen(false)}
                     accentColorHex={accentColorHex}
                   />
-                )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={activeView}
+                  initial={{ opacity: 0, y: 12, scale: 0.985 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -12, scale: 0.985 }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 380,
+                    damping: 32,
+                  }}
+                  className="h-full w-full"
+                >
+                  {activeView === 'explore' && (
+                    <ExploreView
+                      onPlayTrack={playTrack}
+                      onOpenLyrics={(track) => {
+                        playTrack(track);
+                        setIsLyricsOpen(true);
+                        window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
+                      }}
+                      onDownloadTrack={(track) => {
+                        setDownloadTrack(track);
+                        window.history.pushState({ view: activeView, modal: 'download' }, '');
+                      }}
+                      onOpenVideo={(track) => {
+                        playTrack(track);
+                        navigateToView('video');
+                      }}
+                      currentTrack={currentTrack}
+                      currentTrackId={currentTrack?.id}
+                      likedTrackIds={likedTrackIds}
+                      onToggleLike={handleToggleLike}
+                      onSwitchView={navigateToView}
+                      accentColorHex={accentColorHex}
+                      theme={activeTheme}
+                      user={currentUser}
+                      historyQueue={listeningHistory}
+                      youtubeLikedTracks={youtubeLikedTracks}
+                      isYouTubeSynced={isYouTubeSynced}
+                      onOpenAuthModal={() => setIsAuthModalOpen(true)}
+                    />
+                  )}
 
-                {activeView === 'equalizer' && (
-                  <EqualizerView isPlaying={isPlaying} accentColorHex={accentColorHex} />
-                )}
+                  {activeView === 'search' && (
+                    <SearchView
+                      onPlayTrack={playTrack}
+                      onAddToQueue={handleAddToQueue}
+                      onOpenLyrics={(track) => {
+                        playTrack(track);
+                        setIsLyricsOpen(true);
+                        window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
+                      }}
+                      onOpenVideo={(track) => {
+                        playTrack(track);
+                        navigateToView('video');
+                      }}
+                      onDownloadTrack={(track) => {
+                        setDownloadTrack(track);
+                        window.history.pushState({ view: activeView, modal: 'download' }, '');
+                      }}
+                      onOpenCredits={setCreditsTrack}
+                      currentTrackId={currentTrack?.id}
+                      likedTrackIds={likedTrackIds}
+                      onToggleLike={handleToggleLike}
+                      accentColorHex={accentColorHex}
+                      query={searchQuery}
+                      onQueryChange={(q) => setSearchQuery(q)}
+                      theme={activeTheme}
+                    />
+                  )}
 
-                {activeView === 'settings' && (
-                  <SettingsView
-                    settings={settings}
-                    onUpdateSettings={setSettings}
-                    accentColorHex={accentColorHex}
-                    onOpenAppModal={() => {
-                      setIsPwaModalOpen(true);
-                      window.history.pushState({ view: activeView, modal: 'pwa' }, '');
-                    }}
-                  />
-                )}
+                  {activeView === 'video' && (
+                    <VideoTheatreView
+                      currentTrack={currentTrack}
+                      isPlaying={isPlaying}
+                      onTogglePlay={togglePlay}
+                      onNextTrack={handleNextTrack}
+                      onPrevTrack={handlePrevTrack}
+                      currentTime={currentTime}
+                      duration={duration}
+                      onSeek={handleSeek}
+                      queue={userQueue.length > 0 ? userQueue : radioQueue}
+                      onPlayTrack={playTrack}
+                      onOpenLyrics={() => {
+                        setIsLyricsOpen(true);
+                        window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
+                      }}
+                      onSetPipMode={() => {
+                        setVideoMode('pip');
+                        navigateToView('explore');
+                      }}
+                      onDownloadTrack={(track) => {
+                        setDownloadTrack(track);
+                        window.history.pushState({ view: activeView, modal: 'download' }, '');
+                      }}
+                      onSaveToInternalStorage={handleSaveToInternalStorage}
+                      accentColorHex={accentColorHex}
+                    />
+                  )}
 
-                {activeView === 'library' && (
-                  <LibraryView
-                    localTracks={localTracks}
-                    onAddLocalTrack={handleAddLocalTrack}
-                    onRemoveLocalTrack={handleRemoveLocalTrack}
-                    onPlayTrack={playTrack}
-                    likedTrackIds={likedTrackIds}
-                    onToggleLike={handleToggleLike}
-                    playlists={playlists}
-                    onCreatePlaylist={handleCreatePlaylist}
-                    currentTrackId={currentTrack?.id}
-                    accentColorHex={accentColorHex}
-                    offlineItems={offlineItems}
-                    onRemoveOfflineItem={handleRemoveOfflineItem}
-                    youtubeLikedTracks={youtubeLikedTracks}
-                    listeningHistory={listeningHistory}
-                    theme={activeTheme}
-                  />
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  {activeView === 'equalizer' && (
+                    <EqualizerView isPlaying={isPlaying} accentColorHex={accentColorHex} />
+                  )}
+
+                  {activeView === 'settings' && (
+                    <SettingsView
+                      settings={settings}
+                      onUpdateSettings={setSettings}
+                      accentColorHex={accentColorHex}
+                      onOpenAppModal={() => {
+                        setIsPwaModalOpen(true);
+                        window.history.pushState({ view: activeView, modal: 'pwa' }, '');
+                      }}
+                    />
+                  )}
+
+                  {activeView === 'library' && (
+                    <LibraryView
+                      localTracks={localTracks}
+                      onAddLocalTrack={handleAddLocalTrack}
+                      onRemoveLocalTrack={handleRemoveLocalTrack}
+                      onPlayTrack={playTrack}
+                      likedTrackIds={likedTrackIds}
+                      onToggleLike={handleToggleLike}
+                      playlists={playlists}
+                      onCreatePlaylist={handleCreatePlaylist}
+                      currentTrackId={currentTrack?.id}
+                      accentColorHex={accentColorHex}
+                      offlineItems={offlineItems}
+                      onRemoveOfflineItem={handleRemoveOfflineItem}
+                      youtubeLikedTracks={youtubeLikedTracks}
+                      listeningHistory={listeningHistory}
+                      theme={activeTheme}
+                    />
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </main>
 
         {/* Mobile Mini Player Docked Above Tabs */}
@@ -863,6 +884,7 @@ export default function App() {
           isPlaying={isPlaying}
           onTogglePlay={togglePlay}
           onNextTrack={handleNextTrack}
+          onPrevTrack={handlePrevTrack}
           onOpenFullPlayer={() => {
             setIsMobileSheetOpen(true);
             window.history.pushState({ view: activeView, modal: 'now-playing' }, '');
@@ -931,6 +953,7 @@ export default function App() {
             onOpenCredits={setCreditsTrack}
             qualityBadge={qualityBadge}
             isVideoActive={activeView === 'video'}
+            hapticFeedback={settings.hapticFeedback}
             accentColorHex={accentColorHex}
             theme={activeTheme}
           />

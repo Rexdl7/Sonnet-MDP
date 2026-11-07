@@ -5,7 +5,7 @@ import { formatTime } from '../../utils/lyricsParser';
 import { ThemeConfig } from '../../utils/themeConfig';
 import { 
   FolderPlus, Upload, Music, Heart, Plus, 
-  Trash2, Play, HardDrive, Disc, Check, Sparkles, Film, Download
+  Trash2, Play, HardDrive, Disc, Check, Sparkles, Film, Download, Wifi
 } from 'lucide-react';
 
 interface LibraryViewProps {
@@ -167,6 +167,24 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             <Upload className="w-4 h-4 text-white" />
             <span>Import Audio Files</span>
           </button>
+        </div>
+      </div>
+
+      {/* Offline Status Summary Card */}
+      <div className="flex gap-4">
+        <div className="flex-1 rounded-3xl p-5 bg-white/5 border border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-500">
+              <Wifi className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white">Offline Playback Ready</h4>
+              <p className="text-xs text-slate-400 mt-0.5">{Math.min(offlineItems.length, 10)} / 10 tracks cached for offline use</p>
+            </div>
+          </div>
+          <div className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400">
+            {Math.min(offlineItems.length, 10)} / 10
+          </div>
         </div>
       </div>
 

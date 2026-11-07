@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   accentTheme: 'amber',
   visualizerMode: 'bars',
   sleepTimerMinutes: 0,
+  hapticFeedback: true,
 };
 
 export const DEFAULT_EQ_PRESETS: EqualizerPreset[] = [

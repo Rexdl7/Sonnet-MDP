@@ -194,8 +194,9 @@ export const MobileNowPlayingSheet: React.FC<MobileNowPlayingSheetProps> = ({
 
                   <div 
                     className={`relative z-10 max-w-[260px] max-h-[33vh] w-full aspect-square overflow-hidden shadow-2xl border mb-3 sm:mb-4 shrink-0 transition-all ${
-                      isSpotify ? 'rounded-md border-white/10' : 'rounded-3xl border-white/20'
-                    }`}
+                      isSpotify ? 'rounded-md border-white/10' : 'rounded-full border-white/20'
+                    } ${isPlaying ? 'animate-spin' : ''}`}
+                    style={{ animationDuration: '8s', animationTimingFunction: 'linear', animationIterationCount: 'infinite', animationPlayState: isPlaying ? 'running' : 'paused' }}
                   >
                     <img
                       src={currentTrack.thumbnailUrl}

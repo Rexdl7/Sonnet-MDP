@@ -4,7 +4,7 @@ import { THEMES, AppThemeId } from '../../utils/themeConfig';
 import { 
   Settings, Sliders, Sparkles, Volume2, Moon, 
   Trash2, ShieldCheck, Check, Music, Layers, Palette,
-  Download, Archive, Radio, Waves, Sun, Eye, Cpu
+  Download, Archive, Radio, Waves, Sun, Eye, Cpu, Smartphone
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -528,6 +528,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </button>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* 5. Interaction & Tactile Feedback */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+          <Smartphone className="w-4 h-4" style={{ color: currentTheme.colors.accent }} />
+          Interaction & Tactile Feedback
+        </h3>
+        <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+          <div>
+            <span className="text-xs font-semibold text-white block">Haptic Feedback</span>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Enable tactile vibration for play/pause, volume scrubbing, and card interactions.
+            </p>
+          </div>
+          <button
+            onClick={() => onUpdateSettings({ ...settings, hapticFeedback: !settings.hapticFeedback })}
+            className={`w-12 h-6 rounded-full transition-colors p-0.5 relative shrink-0 ${
+              settings.hapticFeedback ? 'bg-[#FA2D48]' : 'bg-white/10'
+            }`}
+            style={{ backgroundColor: settings.hapticFeedback ? currentTheme.colors.accent : undefined }}
+          >
+            <div
+              className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                settings.hapticFeedback ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
       </div>
 

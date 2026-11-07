@@ -2,12 +2,14 @@ import React from 'react';
 import { Track } from '../../types/media';
 import { ThemeConfig } from '../../utils/themeConfig';
 import { Play, Pause, SkipForward } from 'lucide-react';
+import { motion, PanInfo } from 'framer-motion';
 
 interface MobileMiniPlayerProps {
   currentTrack: Track | null;
   isPlaying: boolean;
   onTogglePlay: () => void;
   onNextTrack: () => void;
+  onPrevTrack: () => void;
   onOpenFullPlayer: () => void;
   accentColorHex?: string;
   theme?: ThemeConfig;
@@ -18,6 +20,7 @@ export const MobileMiniPlayer: React.FC<MobileMiniPlayerProps> = ({
   isPlaying,
   onTogglePlay,
   onNextTrack,
+  onPrevTrack,
   onOpenFullPlayer,
   accentColorHex = '#FA2D48',
   theme,
@@ -25,15 +28,26 @@ export const MobileMiniPlayer: React.FC<MobileMiniPlayerProps> = ({
   if (!currentTrack) return null;
 
   const isLight = theme?.category === 'light';
-  const bgColor = isLight ? 'rgba(255, 255, 255, 0.92)' : 'rgba(18, 18, 18, 0.90)';
+  const bgColor = isLight ? 'rgba(255, 255, 255, 0.3)' : 'rgba(18, 18, 18, 0.3)';
   const textColor = theme?.colors.text || (isLight ? '#0F172A' : '#FFFFFF');
   const textMuted = theme?.colors.textMuted || (isLight ? '#64748B' : '#94A3B8');
   const borderColor = theme?.colors.border || (isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.18)');
 
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    if (info.offset.x > 100) {
+      onPrevTrack();
+    } else if (info.offset.x < -100) {
+      onNextTrack();
+    }
+  };
+
   return (
-    <div
+    <motion.div
       onClick={onOpenFullPlayer}
-      className="md:hidden fixed bottom-20 inset-x-3 z-40 max-w-md mx-auto h-14 rounded-2xl backdrop-blur-3xl border shadow-[0_12px_40px_0_rgba(0,0,0,0.5)] flex items-center justify-between px-3.5 cursor-pointer select-none active:scale-[0.99] transition-all"
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      onDragEnd={handleDragEnd}
+      className="md:hidden fixed bottom-20 inset-x-3 z-40 max-w-md mx-auto h-14 rounded-2xl backdrop-blur-lg border shadow-[0_12px_40px_0_rgba(0,0,0,0.5)] flex items-center justify-between px-3.5 cursor-pointer select-none active:scale-[0.99] transition-all"
       style={{
         backgroundColor: bgColor,
         borderColor: borderColor,
@@ -44,7 +58,10 @@ export const MobileMiniPlayer: React.FC<MobileMiniPlayerProps> = ({
       <div className="absolute top-0 inset-x-4 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
 
       {/* Track Info */}
-      <div className="flex items-center gap-3 min-w-0 flex-1">
+      <motion.div
+        className="flex items-center gap-3 min-w-0 flex-1"
+        whileDrag={{ opacity: 0.5 }}
+      >
         <img
           src={currentTrack.thumbnailUrl}
           alt={currentTrack.title}
@@ -55,7 +72,7 @@ export const MobileMiniPlayer: React.FC<MobileMiniPlayerProps> = ({
           <h4 className="text-xs font-bold truncate" style={{ color: textColor }}>{currentTrack.title}</h4>
           <p className="text-[11px] truncate mt-0.5 font-medium" style={{ color: textMuted }}>{currentTrack.artist}</p>
         </div>
-      </div>
+      </motion.div>
 
       {/* Buttons */}
       <div
@@ -84,6 +101,6 @@ export const MobileMiniPlayer: React.FC<MobileMiniPlayerProps> = ({
           <SkipForward className="w-4 h-4" />
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 };

@@ -98,10 +98,10 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     };
   }, [youtubeLikedTracks]);
 
-  // Determine hero track: Prioritize user's actual favorite from YouTube or history
-  const heroTrack: Track | null = (youtubeLikedTracks.length > 0)
-    ? youtubeLikedTracks[0]
-    : (historyQueue.length > 0 ? historyQueue[0] : null);
+  // Determine hero track: Prioritize curated daily mixtape or top recommendation
+  const heroTrack: Track | null = recommendations.quickPicks.length > 0 
+    ? recommendations.quickPicks[0] 
+    : (INITIAL_TRACKS.length > 0 ? INITIAL_TRACKS[0] : (historyQueue.length > 0 ? historyQueue[0] : null));
 
   const moodChips = [
     'All',
@@ -333,47 +333,32 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold tracking-tight" style={{ color: textColor }}>
-                  {user ? 'Listen Again' : 'Studio Recents & Liked Tracks'}
+                  Sonnet Daily Mixtape & Fresh Mixes
                 </h2>
-                {user ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                    <span>YouTube Account Synced</span>
-                  </span>
-                ) : (
-                  onOpenAuthModal && (
-                    <button
-                      onClick={onOpenAuthModal}
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border transition-colors"
-                      style={{ backgroundColor: surfaceColor, borderColor, color: textColor }}
-                    >
-                      <Sparkles className="w-3 h-3" style={{ color: copperAccent }} />
-                      <span>Sync Real Account</span>
-                    </button>
-                  )
-                )}
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border" style={{ backgroundColor: `${copperAccent}20`, borderColor: `${copperAccent}50`, color: copperAccent }}>
+                  <Sparkles className="w-3 h-3" />
+                  <span>Auto-Generated Daily</span>
+                </span>
               </div>
               <p className="text-xs" style={{ color: textMuted }}>
-                {user 
-                  ? `Songs you actually liked on YouTube (${youtubeLikedTracks.length} tracks loaded)`
-                  : 'Connect your Google account to sync your real YouTube history'}
+                Fresh algorithmic tracks and trending artist stations tailored to your active mood
               </p>
             </div>
           </div>
 
           <span className="text-xs font-mono" style={{ color: textMuted }}>
-            {selectedMood !== 'All' ? `${selectedMood} Station` : (youtubeLikedTracks.length > 0 ? `${youtubeLikedTracks.length} Songs` : 'Personalized')}
+            {selectedMood !== 'All' ? `${selectedMood} Station` : 'Curated Mix'}
           </span>
         </div>
 
-        {/* Display real YouTube liked tracks filtered by selected mood/genre tag */}
+        {/* Display fresh algorithmic recommendations & curated daily mix filtered by selected mood/genre tag */}
         {(() => {
-          const rawTracks = youtubeLikedTracks.length > 0 
-            ? youtubeLikedTracks 
-            : (historyQueue.length > 0 ? historyQueue : INITIAL_TRACKS);
+          const rawTracks = recommendations.supermix.length > 0 
+            ? recommendations.supermix 
+            : INITIAL_TRACKS;
 
           const filtered = rawTracks.filter((t) => matchesMoodTag(t, selectedMood));
-          const displayTracks = filtered.length > 0 ? filtered : rawTracks;
+          const displayTracks = filtered.length > 0 ? filtered : INITIAL_TRACKS;
 
           return (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
@@ -382,14 +367,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                 return (
                   <motion.div
                     key={`${track.id}-${idx}`}
-                    whileHover={{ y: -4, scale: 1.025 }}
+                    whileHover={{ y: -6, scale: 1.04, rotateX: 4, rotateY: -4 }}
                     whileTap={{ scale: 0.97 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                    onClick={() => onPlayTrack(track)}
-                    className="group relative p-3 rounded-2xl border transition-all cursor-pointer shadow-sm flex flex-col justify-between"
+                    transition={{ type: 'spring', stiffness: 350, damping: 22 }}
                     style={{
                       backgroundColor: surfaceColor,
                       borderColor: isPlayingThis ? copperAccent : borderColor,
+                      perspective: 1000,
+                      transformStyle: 'preserve-3d',
                     }}
                   >
                     <div className="relative aspect-square rounded-xl overflow-hidden bg-neutral-900 shadow">

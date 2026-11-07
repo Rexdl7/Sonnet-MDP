@@ -103,4 +103,5 @@ export interface AppSettings {
   accentTheme: AccentColorTheme;
   visualizerMode: 'bars' | 'wave';
   sleepTimerMinutes: number; // 0 = off, 15, 30, 45, 60
+  hapticFeedback: boolean;
 }

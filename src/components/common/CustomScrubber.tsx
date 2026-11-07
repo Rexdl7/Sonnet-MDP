@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { formatTime } from '../../utils/lyricsParser';
+import { triggerHaptic } from '../../utils/haptics';
 
 interface CustomScrubberProps {
   currentTime: number;
@@ -12,6 +13,7 @@ interface CustomScrubberProps {
   alwaysShowThumb?: boolean;
   disabled?: boolean;
   trackBgColor?: string;
+  hapticFeedback?: boolean;
 }
 
 /**
@@ -32,6 +34,7 @@ export const CustomScrubber: React.FC<CustomScrubberProps> = ({
   alwaysShowThumb = false,
   disabled = false,
   trackBgColor,
+  hapticFeedback = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -85,6 +88,7 @@ export const CustomScrubber: React.FC<CustomScrubberProps> = ({
       setDragProgressPercent(percent);
       const targetTime = (percent / 100) * safeDuration;
       onSeek(targetTime);
+      triggerHaptic('scrub', !!hapticFeedback);
     }
   };
 

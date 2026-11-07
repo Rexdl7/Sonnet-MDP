@@ -11,6 +11,7 @@ import {
 import { ThemeConfig } from '../../utils/themeConfig';
 import { motion } from 'framer-motion';
 import { CustomScrubber } from '../common/CustomScrubber';
+import { triggerHaptic } from '../../utils/haptics';
 
 interface FloatingPlayerBarProps {
   currentTrack: Track | null;
@@ -41,6 +42,7 @@ interface FloatingPlayerBarProps {
   onOpenCredits?: (track: Track) => void;
   qualityBadge?: string;
   isVideoActive?: boolean;
+  hapticFeedback: boolean;
   accentColorHex?: string;
   theme?: ThemeConfig;
 }
@@ -74,6 +76,7 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
   onOpenCredits,
   qualityBadge = 'LOSSLESS 24-BIT',
   isVideoActive,
+  hapticFeedback,
   accentColorHex = '#D97736',
   theme,
 }) => {
@@ -216,6 +219,7 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
                   accentColorHex="#1DB954"
                   trackBgColor="rgba(255, 255, 255, 0.2)"
                   trackHeight="normal"
+                  hapticFeedback={hapticFeedback}
                 />
               </div>
               <span className="text-[11px] font-mono text-[#B3B3B3] tabular-nums w-9 shrink-0">
@@ -268,7 +272,10 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
                 max={1}
                 step={0.02}
                 value={isMuted ? 0 : volume}
-                onChange={(e) => onVolumeChange(Number(e.target.value))}
+                onChange={(e) => {
+                  triggerHaptic('scrub', hapticFeedback);
+                  onVolumeChange(Number(e.target.value));
+                }}
                 className="w-20 h-1.5 rounded-full bg-white/20 cursor-pointer accent-[#1DB954]"
               />
             </div>
@@ -293,6 +300,7 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
             trackBgColor="rgba(255, 255, 255, 0.15)"
             trackHeight="thin"
             showTimeTooltips={true}
+            hapticFeedback={hapticFeedback}
           />
         </div>
 
@@ -435,6 +443,7 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
               trackBgColor={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)'}
               trackHeight="thin"
               showTimeTooltips={true}
+              hapticFeedback={hapticFeedback}
             />
           </div>
 
@@ -542,7 +551,10 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
               <motion.button
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.92 }}
-                onClick={onTogglePlay}
+                onClick={() => {
+                  triggerHaptic('click', hapticFeedback);
+                  onTogglePlay();
+                }}
                 className="w-11 h-11 rounded-full text-white flex items-center justify-center shadow-xl transition-transform"
                 style={{ backgroundColor: accentColorHex }}
                 title={isPlaying ? 'Pause' : 'Play'}
@@ -590,6 +602,7 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
                   accentColorHex={accentColorHex}
                   trackBgColor={isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.15)'}
                   trackHeight="normal"
+                  hapticFeedback={hapticFeedback}
                 />
               </div>
               <span className="text-[11px] font-mono tabular-nums w-10 shrink-0" style={{ color: textMuted }}>
@@ -686,7 +699,10 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
                 max={1}
                 step={0.02}
                 value={isMuted ? 0 : volume}
-                onChange={(e) => onVolumeChange(Number(e.target.value))}
+                onChange={(e) => {
+                  triggerHaptic('scrub', hapticFeedback);
+                  onVolumeChange(Number(e.target.value));
+                }}
                 className="w-20 h-1.5 rounded-full bg-black/10 dark:bg-white/15 cursor-pointer"
                 style={{ accentColor: accentColorHex }}
               />

@@ -4,6 +4,7 @@ import { Track } from '../../types/media';
 
 interface YouTubePlayerProps {
   currentTrack: Track | null;
+  nextTrack: Track | null;
   isPlaying: boolean;
   volume: number;
   isMuted: boolean;
@@ -19,6 +20,7 @@ interface YouTubePlayerProps {
 
 export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   currentTrack,
+  nextTrack,
   isPlaying,
   volume,
   isMuted,
@@ -39,6 +41,12 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   const youtubeId = currentTrack?.youtubeId || (
     currentTrack?.mediaUrl?.includes('youtube.com') 
       ? new URLSearchParams(new URL(currentTrack.mediaUrl).search).get('v')
+      : null
+  );
+
+  const nextYoutubeId = nextTrack?.youtubeId || (
+    nextTrack?.mediaUrl?.includes('youtube.com') 
+      ? new URLSearchParams(new URL(nextTrack.mediaUrl).search).get('v')
       : null
   );
 
@@ -81,7 +89,6 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   if (!youtubeId || mode === 'theatre') return null;
 
   const isPip = mode === 'pip';
-  const duration = currentTrack?.duration || 180;
 
   return (
     <div
@@ -120,7 +127,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         </div>
       )}
 
-      {/* Bulletproof direct embed iframe with start seconds support for seeking */}
+      {/* Current Track Iframe & Next Track Pre-buffer */}
       <div className="w-full h-full">
         <iframe
           key={`${youtubeId}-${startSeconds}`}
@@ -130,6 +137,15 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
         />
+        
+        {nextYoutubeId && (
+          <iframe
+            key={`next-${nextYoutubeId}`}
+            src={`https://www.youtube-nocookie.com/embed/${nextYoutubeId}?autoplay=0&controls=0&modestbranding=1&rel=0&playsinline=1`}
+            title="Next Track Pre-buffer"
+            className="hidden"
+          />
+        )}
       </div>
     </div>
   );
