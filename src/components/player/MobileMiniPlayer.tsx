@@ -1,5 +1,6 @@
 import React from 'react';
 import { Track } from '../../types/media';
+import { ThemeConfig } from '../../utils/themeConfig';
 import { Play, Pause, SkipForward } from 'lucide-react';
 
 interface MobileMiniPlayerProps {
@@ -9,6 +10,7 @@ interface MobileMiniPlayerProps {
   onNextTrack: () => void;
   onOpenFullPlayer: () => void;
   accentColorHex?: string;
+  theme?: ThemeConfig;
 }
 
 export const MobileMiniPlayer: React.FC<MobileMiniPlayerProps> = ({
@@ -17,24 +19,41 @@ export const MobileMiniPlayer: React.FC<MobileMiniPlayerProps> = ({
   onTogglePlay,
   onNextTrack,
   onOpenFullPlayer,
+  accentColorHex = '#FA2D48',
+  theme,
 }) => {
   if (!currentTrack) return null;
+
+  const isLight = theme?.category === 'light';
+  const bgColor = isLight ? 'rgba(255, 255, 255, 0.92)' : 'rgba(18, 18, 18, 0.90)';
+  const textColor = theme?.colors.text || (isLight ? '#0F172A' : '#FFFFFF');
+  const textMuted = theme?.colors.textMuted || (isLight ? '#64748B' : '#94A3B8');
+  const borderColor = theme?.colors.border || (isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.18)');
 
   return (
     <div
       onClick={onOpenFullPlayer}
-      className="md:hidden mx-3 mb-2 h-14 rounded-2xl bg-slate-900/80 backdrop-blur-3xl border border-white/15 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] flex items-center justify-between px-3.5 cursor-pointer select-none active:scale-[0.99] transition-transform"
+      className="md:hidden fixed bottom-20 inset-x-3 z-40 max-w-md mx-auto h-14 rounded-2xl backdrop-blur-3xl border shadow-[0_12px_40px_0_rgba(0,0,0,0.5)] flex items-center justify-between px-3.5 cursor-pointer select-none active:scale-[0.99] transition-all"
+      style={{
+        backgroundColor: bgColor,
+        borderColor: borderColor,
+        color: textColor,
+      }}
     >
+      {/* Top Specular Highlight */}
+      <div className="absolute top-0 inset-x-4 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
+
       {/* Track Info */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <img
           src={currentTrack.thumbnailUrl}
           alt={currentTrack.title}
-          className="w-10 h-10 rounded-xl object-cover shadow-md shrink-0 border border-white/10"
+          className="w-10 h-10 rounded-xl object-cover shadow-md shrink-0 border"
+          style={{ borderColor }}
         />
         <div className="min-w-0">
-          <h4 className="text-xs font-bold text-white truncate">{currentTrack.title}</h4>
-          <p className="text-[11px] text-slate-400 truncate mt-0.5">{currentTrack.artist}</p>
+          <h4 className="text-xs font-bold truncate" style={{ color: textColor }}>{currentTrack.title}</h4>
+          <p className="text-[11px] truncate mt-0.5 font-medium" style={{ color: textMuted }}>{currentTrack.artist}</p>
         </div>
       </div>
 
@@ -45,19 +64,21 @@ export const MobileMiniPlayer: React.FC<MobileMiniPlayerProps> = ({
       >
         <button
           onClick={onTogglePlay}
-          className="w-9 h-9 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+          className="w-9 h-9 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+          style={{ backgroundColor: accentColorHex, color: '#FFFFFF' }}
           title={isPlaying ? 'Pause' : 'Play'}
         >
           {isPlaying ? (
-            <Pause className="w-4 h-4 fill-slate-900" />
+            <Pause className="w-4 h-4 fill-current" />
           ) : (
-            <Play className="w-4 h-4 fill-slate-900 ml-0.5" />
+            <Play className="w-4 h-4 fill-current ml-0.5" />
           )}
         </button>
 
         <button
           onClick={onNextTrack}
-          className="p-2 text-slate-300 hover:text-white transition-colors"
+          className="p-2 transition-colors"
+          style={{ color: textMuted }}
           title="Next Track"
         >
           <SkipForward className="w-4 h-4" />

@@ -132,13 +132,16 @@ export default function App() {
     });
   };
 
-  // Synchronize Firestore likes and playlists when user signs in
+  // Synchronize Firestore likes, history, and playlists when user signs in
   useEffect(() => {
     if (!currentUser) return;
 
-    const unsubLibrary = subscribeUserLibrary(currentUser.uid, ({ likedTrackIds: remoteLikes }) => {
+    const unsubLibrary = subscribeUserLibrary(currentUser.uid, ({ likedTrackIds: remoteLikes, history: remoteHistory }) => {
       if (remoteLikes && remoteLikes.length > 0) {
         setLikedTrackIds(new Set(remoteLikes));
+      }
+      if (remoteHistory && remoteHistory.length > 0) {
+        setHistoryQueue(remoteHistory);
       }
     });
 
@@ -154,9 +157,8 @@ export default function App() {
     };
   }, [currentUser]);
 
-  // Spotify Web style History API management (Prevents accidental browser discard on mobile back)
+  // Spotify / YouTube Web style History API management (Clean single-step back for modals and views)
   useEffect(() => {
-    // Prime initial history state so we have a solid root anchor
     if (!window.history.state) {
       window.history.replaceState({ view: 'explore', modal: null }, '');
     }
@@ -164,7 +166,7 @@ export default function App() {
     const handlePopState = (e: PopStateEvent) => {
       isPoppingStateRef.current = true;
 
-      // 1. If any modal / bottom sheet is open, close it FIRST instead of leaving page
+      // 1. Close any open modals/sheets in a single clean step
       if (downloadTrack) {
         setDownloadTrack(null);
         setTimeout(() => { isPoppingStateRef.current = false; }, 50);
@@ -191,7 +193,7 @@ export default function App() {
         return;
       }
 
-      // 2. If user was in a subview (search, video, library, etc.), go back to previous view or explore
+      // 2. Navigate back to previous view or explore
       const targetView = e.state?.view as ActiveView | undefined;
       if (targetView && targetView !== activeView) {
         setActiveView(targetView);
@@ -205,15 +207,6 @@ export default function App() {
         return;
       }
 
-      // 3. User is on 'explore' with no modals open:
-      // Prevent browser tab from immediately getting discarded!
-      const now = Date.now();
-      if (now - lastBackPressRef.current > 2000) {
-        lastBackPressRef.current = now;
-        window.history.pushState({ view: 'explore', modal: null }, '');
-        setExitToast('Press back again to exit');
-        setTimeout(() => setExitToast(null), 2000);
-      }
       setTimeout(() => { isPoppingStateRef.current = false; }, 50);
     };
 
@@ -424,6 +417,43 @@ export default function App() {
     }
     handleNextTrack();
   }, [repeatMode, handleNextTrack, handleSeek]);
+
+  // Media Session API for background audio playback when browser/app is minimized on mobile
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !currentTrack) return;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentTrack.title,
+      artist: currentTrack.artist,
+      album: currentTrack.album || 'Sonnet Stream',
+      artwork: [
+        { src: currentTrack.thumbnailUrl, sizes: '96x96', type: 'image/jpeg' },
+        { src: currentTrack.thumbnailUrl, sizes: '128x128', type: 'image/jpeg' },
+        { src: currentTrack.thumbnailUrl, sizes: '192x192', type: 'image/jpeg' },
+        { src: currentTrack.thumbnailUrl, sizes: '512x512', type: 'image/jpeg' },
+      ],
+    });
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      if (!isPlaying) togglePlay();
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      if (isPlaying) togglePlay();
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      handlePrevTrack();
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      handleNextTrack();
+    });
+    try {
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined) {
+          handleSeek(details.seekTime);
+        }
+      });
+    } catch {}
+  }, [currentTrack, isPlaying, togglePlay, handlePrevTrack, handleNextTrack, handleSeek]);
 
   // Queue actions (explicit user-added queue)
   const handleAddToQueue = (track: Track) => {
@@ -804,6 +834,7 @@ export default function App() {
             window.history.pushState({ view: activeView, modal: 'now-playing' }, '');
           }}
           accentColorHex={accentColorHex}
+          theme={activeTheme}
         />
 
         {/* Mobile Bottom Tab Bar */}

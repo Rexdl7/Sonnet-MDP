@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, googleProvider, signInWithPopup, signOut, testConnection } from '../lib/firebase';
+import { auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, testConnection } from '../lib/firebase';
 import { syncUserProfile } from '../services/firebaseService';
 import { UserAuthProfile } from '../types/media';
 
@@ -16,6 +16,11 @@ export function useFirebaseAuth() {
       setIsFirebaseOnline(online);
     });
 
+    // Handle mobile redirect sign-in result on page reload
+    getRedirectResult(auth).catch((err) => {
+      console.warn('Redirect result error:', err);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
       if (user) {
         const userProfile: UserAuthProfile = {
@@ -27,7 +32,7 @@ export function useFirebaseAuth() {
         };
         setCurrentUser(userProfile);
 
-        // Sync to Firestore
+        // Sync user profile & YouTube Music listening history personalization
         try {
           await syncUserProfile({
             id: user.uid,
@@ -53,15 +58,21 @@ export function useFirebaseAuth() {
       const result = await signInWithPopup(auth, googleProvider);
       return result.user;
     } catch (error: any) {
-      console.error('Google Sign-In Error:', error);
-      let msg = error?.message || 'Failed to sign in with Google';
-      if (error?.code === 'auth/popup-blocked') {
-        msg = 'Sign-in popup was blocked by browser. Please allow popups for this site.';
-      } else if (error?.code === 'auth/cancelled-popup-request' || error?.code === 'auth/popup-closed-by-user') {
-        msg = 'Sign-in cancelled.';
+      console.warn('Google Popup Sign-In Error, falling back to redirect:', error);
+      // Automatic fallback for mobile browsers or blocked popups
+      try {
+        await signInWithRedirect(auth, googleProvider);
+      } catch (redirectErr: any) {
+        console.error('Google Redirect Sign-In Error:', redirectErr);
+        let msg = redirectErr?.message || 'Failed to sign in with Google';
+        if (redirectErr?.code === 'auth/popup-blocked') {
+          msg = 'Sign-in popup was blocked. Trying redirect method...';
+        } else if (redirectErr?.code === 'auth/cancelled-popup-request' || redirectErr?.code === 'auth/popup-closed-by-user') {
+          msg = 'Sign-in cancelled.';
+        }
+        setAuthError(msg);
+        throw redirectErr;
       }
-      setAuthError(msg);
-      throw error;
     }
   };
 

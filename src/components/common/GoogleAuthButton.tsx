@@ -50,7 +50,7 @@ export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
           onClick={handleSignIn}
           disabled={isLoggingIn}
           className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 bg-white text-black hover:bg-slate-200 transition-all shadow-sm active:scale-95 disabled:opacity-50"
-          title="Sign in with Google to sync your playlists and liked songs to Firebase"
+          title="Sign in with Google to sync your sonnetmdp YouTube history, playlists, and liked songs"
         >
           {/* Google SVG Icon */}
           <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">

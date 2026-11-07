@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 
 /**
@@ -99,4 +99,4 @@ export async function testConnection(): Promise<boolean> {
   }
 }
 
-export { signInWithPopup, signOut };
+export { signInWithPopup, signInWithRedirect, getRedirectResult, signOut };
