@@ -77,21 +77,49 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   // Seed algorithmic YouTube Music recommendations whenever YouTube library is updated
   useEffect(() => {
     let isMounted = true;
-    setIsLoadingRecs(true);
-    generateYouTubeMusicRecommendations(youtubeLikedTracks)
-      .then((recs) => {
+    
+    // Only show loader if we have absolutely no recommendations yet
+    if (recommendations.quickPicks.length === 0) {
+      setIsLoadingRecs(true);
+    }
+
+    const fetchRecs = async () => {
+      try {
+        const recs = await generateYouTubeMusicRecommendations(youtubeLikedTracks);
         if (isMounted) {
-          setRecommendations(recs);
+          // If the recommendation engine returns nothing (cold start), fetch trending songs as a rich fallback
+          if (recs.quickPicks.length === 0) {
+            const res = await fetch('/api/music/trending?category=charts');
+            if (res.ok) {
+              const trending = await res.json();
+              if (trending.results && trending.results.length > 0) {
+                setRecommendations({
+                  quickPicks: trending.results.slice(0, 12),
+                  similarToTopArtist: {
+                    artistName: 'Trending Global',
+                    tracks: trending.results.slice(12, 18),
+                  },
+                  supermix: trending.results.sort(() => Math.random() - 0.5).slice(0, 8),
+                });
+                return;
+              }
+            }
+          }
+          
+          if (recs.quickPicks.length > 0) {
+            setRecommendations(recs);
+          }
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.warn('Recommendation engine notice:', err);
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) {
           setIsLoadingRecs(false);
         }
-      });
+      }
+    };
+
+    fetchRecs();
 
     return () => {
       isMounted = false;
@@ -101,7 +129,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   // Determine hero track: Prioritize curated daily mixtape or top recommendation
   const heroTrack: Track | null = recommendations.quickPicks.length > 0 
     ? recommendations.quickPicks[0] 
-    : (INITIAL_TRACKS.length > 0 ? INITIAL_TRACKS[0] : (historyQueue.length > 0 ? historyQueue[0] : null));
+    : (historyQueue.length > 0 ? historyQueue[0] : null);
 
   const moodChips = [
     'All',
@@ -355,10 +383,10 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         {(() => {
           const rawTracks = recommendations.supermix.length > 0 
             ? recommendations.supermix 
-            : INITIAL_TRACKS;
+            : historyQueue;
 
           const filtered = rawTracks.filter((t) => matchesMoodTag(t, selectedMood));
-          const displayTracks = filtered.length > 0 ? filtered : INITIAL_TRACKS;
+          const displayTracks = filtered.length > 0 ? filtered : rawTracks;
 
           return (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
@@ -431,7 +459,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {(() => {
-            const rawPicks = recommendations.quickPicks.length > 0 ? recommendations.quickPicks : INITIAL_TRACKS;
+            const rawPicks = recommendations.quickPicks.length > 0 ? recommendations.quickPicks : historyQueue;
             const filteredPicks = rawPicks.filter((t) => matchesMoodTag(t, selectedMood));
             const displayPicks = filteredPicks.length > 0 ? filteredPicks : rawPicks;
 

@@ -7,12 +7,13 @@ import {
   FolderPlus, Upload, Music, Heart, Plus, 
   Trash2, Play, HardDrive, Disc, Check, Sparkles, Film, Download, Wifi
 } from 'lucide-react';
+import { AdBanner } from '../common/AdBanner';
 
 interface LibraryViewProps {
   localTracks: Track[];
   onAddLocalTrack: (track: Track) => void;
   onRemoveLocalTrack: (trackId: string) => void;
-  onPlayTrack: (track: Track) => void;
+  onPlayTrack: (track: Track, fromPlaylistId?: string, playlistTracks?: Track[]) => void;
   likedTrackIds: Set<string>;
   onToggleLike: (trackId: string) => void;
   playlists: Playlist[];
@@ -276,105 +277,112 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
       {/* Track List */}
       {activeTab !== 'playlists' && (
-        <div className="space-y-1.5 border rounded-3xl p-3 shadow-sm" style={{ backgroundColor: surfaceColor, borderColor }}>
-          {(() => {
-            const listToDisplay =
-              activeTab === 'local'
-                ? localTracks
-                : activeTab === 'liked'
-                ? likedTracks
-                : activeTab === 'history'
-                ? listeningHistory
-                : allTracks;
+        <>
+          <div className="space-y-1.5 border rounded-3xl p-3 shadow-sm" style={{ backgroundColor: surfaceColor, borderColor }}>
+            {(() => {
+              const listToDisplay =
+                activeTab === 'local'
+                  ? localTracks
+                  : activeTab === 'liked'
+                  ? likedTracks
+                  : activeTab === 'history'
+                  ? listeningHistory
+                  : allTracks;
 
-            if (listToDisplay.length === 0) {
-              return (
-                <div className="py-16 text-center" style={{ color: textMuted }}>
-                  <Music className="w-12 h-12 mx-auto mb-2 stroke-1" style={{ color: textMuted }} />
-                  <p className="text-sm font-medium" style={{ color: textColor }}>No tracks in this view</p>
-                  <p className="text-xs mt-1">Search any song or connect your Google account to sync your YouTube Music library.</p>
-                </div>
-              );
-            }
+              if (listToDisplay.length === 0) {
+                return (
+                  <div className="py-16 text-center" style={{ color: textMuted }}>
+                    <Music className="w-12 h-12 mx-auto mb-2 stroke-1" style={{ color: textMuted }} />
+                    <p className="text-sm font-medium" style={{ color: textColor }}>No tracks in this view</p>
+                    <p className="text-xs mt-1">Search any song or connect your Google account to sync your YouTube Music library.</p>
+                  </div>
+                );
+              }
 
-            return listToDisplay.map((track, idx) => {
-              const isPlayingCurrent = currentTrackId === track.id;
-              const isLiked = likedTrackIds.has(track.id);
+              return listToDisplay.map((track, idx) => {
+                const isPlayingCurrent = currentTrackId === track.id;
+                const isLiked = likedTrackIds.has(track.id);
 
-              return (
-                <div
-                  key={track.id}
-                  onClick={() => onPlayTrack(track)}
-                  className="group flex items-center justify-between gap-3.5 p-3 rounded-2xl transition-all cursor-pointer border"
-                  style={{
-                    backgroundColor: isPlayingCurrent ? `${accentColorHex}15` : 'transparent',
-                    borderColor: isPlayingCurrent ? `${accentColorHex}40` : 'transparent',
-                  }}
-                >
-                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                    <span className="w-6 text-center text-xs font-mono tabular-nums shrink-0" style={{ color: textMuted }}>
-                      {idx + 1}
-                    </span>
+                return (
+                  <div
+                    key={track.id}
+                    onClick={() => onPlayTrack(track, activeTab, listToDisplay)}
+                    className="group flex items-center justify-between gap-3.5 p-3 rounded-2xl transition-all cursor-pointer border"
+                    style={{
+                      backgroundColor: isPlayingCurrent ? `${accentColorHex}15` : 'transparent',
+                      borderColor: isPlayingCurrent ? `${accentColorHex}40` : 'transparent',
+                    }}
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                      <span className="w-6 text-center text-xs font-mono tabular-nums shrink-0" style={{ color: textMuted }}>
+                        {idx + 1}
+                      </span>
 
-                    <img
-                      src={track.thumbnailUrl}
-                      alt={track.title}
-                      className="w-10 h-10 rounded-xl object-cover shadow-sm shrink-0 border"
-                      style={{ borderColor }}
-                    />
+                      <img
+                        src={track.thumbnailUrl}
+                        alt={track.title}
+                        className="w-10 h-10 rounded-xl object-cover shadow-sm shrink-0 border"
+                        style={{ borderColor }}
+                      />
 
-                    <div className="min-w-0 flex-1">
-                      <h4
-                        className="text-xs sm:text-sm font-semibold truncate"
-                        style={{ color: isPlayingCurrent ? accentColorHex : textColor }}
-                      >
-                        {track.title}
-                      </h4>
-                      <div className="flex items-center gap-1.5 text-[11px] truncate mt-0.5" style={{ color: textMuted }}>
-                        <span className="truncate">{track.artist}</span>
-                        <span>·</span>
-                        <span className="truncate">{track.album}</span>
+                      <div className="min-w-0 flex-1">
+                        <h4
+                          className="text-xs sm:text-sm font-semibold truncate"
+                          style={{ color: isPlayingCurrent ? accentColorHex : textColor }}
+                        >
+                          {track.title}
+                        </h4>
+                        <div className="flex items-center gap-1.5 text-[11px] truncate mt-0.5" style={{ color: textMuted }}>
+                          <span className="truncate">{track.artist}</span>
+                          <span>·</span>
+                          <span className="truncate">{track.album}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleLike(track.id);
-                      }}
-                      className="p-2 rounded-xl text-slate-400 hover:text-white transition-colors"
-                      title={isLiked ? 'Unlike' : 'Like'}
-                    >
-                      <Heart
-                        className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}
-                        style={{ color: isLiked ? accentColorHex : undefined }}
-                      />
-                    </button>
-
-                    {track.source === 'local' && (
+                    <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onRemoveLocalTrack(track.id);
+                          onToggleLike(track.id);
                         }}
-                        className="p-2 rounded-xl text-slate-500 hover:text-red-400 hover:bg-white/10 transition-colors"
-                        title="Remove Local File"
+                        className="p-2 rounded-xl text-slate-400 hover:text-white transition-colors"
+                        title={isLiked ? 'Unlike' : 'Like'}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Heart
+                          className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}
+                          style={{ color: isLiked ? accentColorHex : undefined }}
+                        />
                       </button>
-                    )}
 
-                    <span className="text-xs font-mono tabular-nums text-slate-500 w-12 text-right">
-                      {track.duration > 0 ? formatTime(track.duration) : '--:--'}
-                    </span>
+                      {track.source === 'local' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveLocalTrack(track.id);
+                          }}
+                          className="p-2 rounded-xl text-slate-500 hover:text-red-400 hover:bg-white/10 transition-colors"
+                          title="Remove Local File"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      <span className="text-xs font-mono tabular-nums text-slate-500 w-12 text-right">
+                        {track.duration > 0 ? formatTime(track.duration) : '--:--'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              );
-            });
-          })()}
-        </div>
+                );
+              });
+            })()}
+          </div>
+
+          {/* Subtle Ad Space at bottom of library */}
+          <div className="mt-8 flex justify-center">
+            <AdBanner slot="0987654321" className="w-full max-w-2xl opacity-50 hover:opacity-100 transition-opacity" />
+          </div>
+        </>
       )}
 
       {/* In-App Offline Downloads View */}

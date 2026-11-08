@@ -1,5 +1,5 @@
 /**
- * Procedural Music Generator for Sonnet Player.
+ * Procedural Music Generator for sonnetmdp.
  * Generates rich musical audio waveforms (Synthwave, Lo-Fi, Pop, Classical, Ambient)
  * encoded as standard WAV audio blobs. This guarantees 100% offline, zero-CORS,
  * instant playback that powers the 10-band equalizer and spectrum visualizer.

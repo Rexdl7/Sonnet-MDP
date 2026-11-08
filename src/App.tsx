@@ -79,7 +79,7 @@ export default function App() {
   const [duration, setDuration] = useState<number>(180);
   const [volume, setVolume] = useState<number>(0.85);
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [repeatMode, setRepeatMode] = useState<PlaybackRepeatMode>('all');
+  const [repeatMode, setRepeatMode] = useState<PlaybackRepeatMode>('off');
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
   const [seekTime, setSeekTime] = useState<number | null>(null);
 
@@ -96,7 +96,7 @@ export default function App() {
   // Lists & Collections
   const [localTracks, setLocalTracks] = useState<Track[]>([]);
   const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
-  const [playlists, setPlaylists] = useState<Playlist[]>(INITIAL_PLAYLISTS);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
 
   // Navigation & Drawer states
   const [activeView, setActiveView] = useState<ActiveView>('explore');
@@ -105,6 +105,9 @@ export default function App() {
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState<boolean>(false);
   const [isPwaModalOpen, setIsPwaModalOpen] = useState<boolean>(false);
+  
+  // Track if we are currently playing from a specific playlist (to maintain that queue)
+  const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
 
   // Mobile Back Button Toast hint
   const [exitToast, setExitToast] = useState<string | null>(null);
@@ -310,13 +313,32 @@ export default function App() {
     }
   }, [autoplayRadio]);
 
+  // Automatically seed radio queue if playing and queue is empty
+  useEffect(() => {
+    if (currentTrack && radioQueue.length === 0 && userQueue.length === 0 && !isLoadingRadio) {
+      fetchSimilarVibeTracks(currentTrack);
+    }
+  }, [currentTrack, radioQueue.length, userQueue.length, isLoadingRadio, fetchSimilarVibeTracks]);
+
   // Play a specific track
-  const playTrack = useCallback((track: Track) => {
+  const playTrack = useCallback((track: Track, fromPlaylistId: string | null = null, playlistTracks: Track[] = []) => {
     initAudioDsp();
     setCurrentTrack(track);
     setCurrentTime(0);
     setDuration(track.duration || 180);
     setIsPlaying(true);
+    setActivePlaylistId(fromPlaylistId);
+
+    // If playing from a playlist, populate the user queue with remaining songs
+    if (fromPlaylistId && playlistTracks.length > 0) {
+      const trackIndex = playlistTracks.findIndex(t => t.id === track.id);
+      if (trackIndex !== -1) {
+        setUserQueue(playlistTracks.slice(trackIndex + 1));
+      }
+    } else {
+      // If playing a single track (search/explore), clear user queue to prioritize Infinite Radio
+      setUserQueue([]);
+    }
 
     // Track played history
     playedTrackIdsRef.current.add(track.id);
@@ -333,6 +355,7 @@ export default function App() {
       }
 
       // Generate continuous Up Next radio queue matching the seed track
+      // If we are playing from a playlist, we still fetch radio as a secondary fallback
       generateUpNextRadio(track)
         .then((upNextTracks) => {
           if (upNextTracks.length > 0) {
@@ -384,16 +407,17 @@ export default function App() {
     if (userQueue.length > 0) {
       const [nextTrack, ...remaining] = userQueue;
       setUserQueue(remaining);
-      playTrack(nextTrack);
+      playTrack(nextTrack, activePlaylistId);
       return;
     }
 
-    // 2. Continuous similar vibe radio
-    if (autoplayRadio && radioQueue.length > 0) {
+    // 2. Continuous similar vibe radio (Infinite Radio)
+    // If we are NOT playing from a playlist, or if the playlist queue is exhausted
+    if (radioQueue.length > 0) {
       const nextTrack = radioQueue[0];
       const remaining = radioQueue.slice(1);
       setRadioQueue(remaining);
-      playTrack(nextTrack);
+      playTrack(nextTrack, activePlaylistId);
 
       // If radio buffer is running low, replenish with more similar songs
       if (remaining.length <= 2) {
@@ -402,29 +426,11 @@ export default function App() {
       return;
     }
 
-    // 3. Fallback: Repeat all or fetch country charts
-    if (repeatMode === 'all') {
-      const all = [...INITIAL_TRACKS, ...localTracks];
-      const currentIndex = all.findIndex((t) => t.id === currentTrack?.id);
-      const nextIndex = (currentIndex + 1) % all.length;
-      playTrack(all[nextIndex]);
+    // 3. Fallback: If absolutely nothing left, try to seed from current track
+    if (currentTrack) {
+      fetchSimilarVibeTracks(currentTrack);
     }
-  }, [userQueue, autoplayRadio, radioQueue, repeatMode, currentTrack?.id, localTracks, playTrack, fetchSimilarVibeTracks]);
-
-  // Previous Track
-  const handlePrevTrack = useCallback(() => {
-    if (currentTime > 3) {
-      handleSeek(0);
-      return;
-    }
-    const all = [...INITIAL_TRACKS, ...localTracks];
-    const currentIndex = all.findIndex((t) => t.id === currentTrack?.id);
-    if (currentIndex > 0) {
-      playTrack(all[currentIndex - 1]);
-    } else if (all.length > 0) {
-      playTrack(all[all.length - 1]);
-    }
-  }, [currentTime, currentTrack?.id, localTracks, playTrack]);
+  }, [userQueue, radioQueue, currentTrack, playTrack, fetchSimilarVibeTracks, activePlaylistId]);
 
   // Seek handler
   const handleSeek = useCallback((seconds: number) => {
@@ -436,6 +442,23 @@ export default function App() {
       audioRef.current.currentTime = seconds;
     }
   }, [isCurrentYouTube]);
+
+  // Previous Track
+  const handlePrevTrack = useCallback(() => {
+    if (currentTime > 3) {
+      handleSeek(0);
+      return;
+    }
+    const all = [...localTracks];
+    const currentIndex = all.findIndex((t) => t.id === currentTrack?.id);
+    if (currentIndex > 0) {
+      playTrack(all[currentIndex - 1]);
+    } else if (all.length > 0) {
+      playTrack(all[all.length - 1]);
+    } else if (currentTrack) {
+      handleSeek(0);
+    }
+  }, [currentTime, currentTrack, localTracks, playTrack, handleSeek]);
 
   // Handle Track Ended
   const handleTrackEnded = useCallback(() => {
@@ -858,7 +881,7 @@ export default function App() {
                       localTracks={localTracks}
                       onAddLocalTrack={handleAddLocalTrack}
                       onRemoveLocalTrack={handleRemoveLocalTrack}
-                      onPlayTrack={playTrack}
+                      onPlayTrack={(track, plId, plTracks) => playTrack(track, plId, plTracks)}
                       likedTrackIds={likedTrackIds}
                       onToggleLike={handleToggleLike}
                       playlists={playlists}

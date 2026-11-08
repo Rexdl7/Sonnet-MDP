@@ -15,8 +15,8 @@ export default defineConfig(() => {
         includeAssets: ['favicon.svg', 'icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           id: './',
-          name: 'Sonnet Music Player',
-          short_name: 'Sonnet Music',
+          name: 'sonnetmdp',
+          short_name: 'sonnetmdp',
           description: 'High-fidelity audio & YouTube video music streaming player with 10-band studio equalizer.',
           theme_color: '#030303',
           background_color: '#030303',

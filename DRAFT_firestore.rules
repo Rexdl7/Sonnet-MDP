@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // --------------------------------------------------------------------------
+    // GLOBAL HELPERS
+    // --------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --------------------------------------------------------------------------
+    // USER PROFILES
+    // --------------------------------------------------------------------------
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['id', 'email']) &&
+               data.keys().hasOnly(['id', 'displayName', 'email', 'photoURL', 'preferredTheme', 'preferredQuality', 'createdAt', 'updatedAt']) &&
+               data.id == request.auth.uid &&
+               data.email is string && data.email.size() <= 256 &&
+               (data.displayName == null || (data.displayName is string && data.displayName.size() <= 128)) &&
+               (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1024));
+      }
+
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt == request.time;
+    }
+
+    // --------------------------------------------------------------------------
+    // USER LIBRARIES
+    // --------------------------------------------------------------------------
+    match /user_libraries/{userId} {
+      function isValidLibrary(data) {
+        return data.keys().hasAll(['userId']) &&
+               data.keys().hasOnly(['userId', 'likedTrackIds', 'history', 'updatedAt']) &&
+               data.userId == request.auth.uid &&
+               (data.likedTrackIds is list && data.likedTrackIds.size() <= 1000) &&
+               (data.history is list && data.history.size() <= 50);
+      }
+
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidLibrary(incoming()) && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId) && isValidLibrary(incoming()) && 
+                       incoming().updatedAt == request.time;
+    }
+
+    // --------------------------------------------------------------------------
+    // PLAYLISTS
+    // --------------------------------------------------------------------------
+    match /playlists/{playlistId} {
+      function isValidPlaylist(data) {
+        return data.keys().hasAll(['id', 'userId', 'name']) &&
+               data.keys().hasOnly(['id', 'userId', 'name', 'description', 'tracks', 'createdAt', 'updatedAt']) &&
+               data.userId == request.auth.uid &&
+               data.name is string && data.name.size() <= 120 &&
+               (data.description == null || (data.description is string && data.description.size() <= 500)) &&
+               (data.tracks is list && data.tracks.size() <= 500);
+      }
+
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidPlaylist(incoming()) && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && isOwner(existing().userId) && isValidPlaylist(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt == request.time;
+      allow delete: if isSignedIn() && isOwner(existing().userId);
+    }
+
+    // --------------------------------------------------------------------------
+    // DOWNLOADS
+    // --------------------------------------------------------------------------
+    match /downloads/{downloadId} {
+      function isValidDownload(data) {
+        return data.keys().hasAll(['id', 'userId', 'title']) &&
+               data.keys().hasOnly(['id', 'userId', 'title', 'artist', 'mediaType', 'quality', 'downloadedAt']) &&
+               data.userId == request.auth.uid &&
+               data.title is string && data.title.size() <= 256;
+      }
+
+      allow list, get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidDownload(incoming()) && incoming().downloadedAt == request.time;
+      allow delete: if isSignedIn() && isOwner(existing().userId);
+    }
+  }
+}

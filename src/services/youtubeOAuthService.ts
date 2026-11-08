@@ -276,10 +276,10 @@ export async function generateYouTubeMusicRecommendations(
         .slice(0, 6);
 
       // 4. Construct My Supermix (blend of user's liked favorites + collaborative recommendations)
-      const supermix = [
-        ...userLikedTracks.slice(0, 3),
-        ...filteredSimilar.slice(0, 3),
-      ].sort(() => Math.random() - 0.5);
+      const supermix = Array.from(new Set([
+        ...userLikedTracks.slice(0, 10),
+        ...filteredSimilar,
+      ])).sort(() => Math.random() - 0.5);
 
       return {
         quickPicks: quickPicks.length > 0 ? quickPicks : userLikedTracks.slice(0, 6),

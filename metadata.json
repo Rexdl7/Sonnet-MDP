@@ -1,5 +1,5 @@
 {
-  "name": "Sonnet Player",
+  "name": "sonnetmdp",
   "description": "High-fidelity frosted acrylic music player featuring online streaming, real-time synchronized lyrics, 10-band graphic studio equalizer, and local audio library.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

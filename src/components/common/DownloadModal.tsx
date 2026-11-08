@@ -235,7 +235,7 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({
                 <span className="text-xs font-bold">In-App Offline Storage</span>
               </div>
               <p className="text-[10px] text-slate-400">
-                Play offline anytime inside Sonnet Player without using data
+                Play offline anytime inside sonnetmdp without using data
               </p>
             </div>
 

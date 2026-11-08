@@ -59,7 +59,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Install Sonnet Music as a native standalone app with offline support
+                Install sonnetmdp as a native standalone app with offline support
               </p>
             </div>
           </div>
@@ -151,7 +151,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
               {isInstalled ? (
                 <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4" />
-                  <span>Sonnet Music is already installed and running as a native app!</span>
+                  <span>sonnetmdp is already installed and running as a native app!</span>
                 </div>
               ) : isInstallable ? (
                 <button
@@ -171,7 +171,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
                   <ol className="list-decimal list-inside text-slate-300 space-y-1 pl-1">
                     <li>Tap the <strong>Share</strong> button in your Safari bottom toolbar.</li>
                     <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
-                    <li>Tap <strong>Add</strong> to launch Sonnet Music in fullscreen!</li>
+                    <li>Tap <strong>Add</strong> to launch sonnetmdp in fullscreen!</li>
                   </ol>
                 </div>
               ) : (

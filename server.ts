@@ -727,7 +727,7 @@ app.get('/api/download-android-project', async (_req, res) => {
     // 1. capacitor.config.json
     const capacitorConfig = JSON.stringify({
       appId: "com.sonnet.musicplayer",
-      appName: "Sonnet Music",
+      appName: "sonnetmdp",
       webDir: "dist",
       server: {
         androidScheme: "https"
@@ -742,7 +742,7 @@ app.get('/api/download-android-project', async (_req, res) => {
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <application
         android:allowBackup="true"
-        android:label="Sonnet Music"
+        android:label="sonnetmdp"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
         <activity
@@ -789,9 +789,9 @@ public class MainActivity extends AppCompatActivity {
     zip.addFile('android/app/src/main/java/com/sonnet/musicplayer/MainActivity.java', Buffer.from(mainActivity, 'utf8'));
 
     // 4. README with APK compilation instructions
-    const readme = `# Sonnet Music Player - Native Android APK Project
+    const readme = `# sonnetmdp - Native Android APK Project
 
-This project compiles Sonnet Music into an official standalone Android .apk file.
+This project compiles sonnetmdp into an official standalone Android .apk file.
 
 ## Build Requirements
 - Android Studio Iguana+ OR JDK 17+ and Android SDK
@@ -832,7 +832,7 @@ Install directly on your phone:
 
     const zipBuffer = zip.toBuffer();
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', 'attachment; filename="sonnet-music-android-project.zip"');
+    res.setHeader('Content-Disposition', 'attachment; filename="sonnetmdp-android-project.zip"');
     res.setHeader('Content-Length', zipBuffer.length);
     return res.send(zipBuffer);
   } catch (error) {
@@ -860,7 +860,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Sonnet Player server running on http://0.0.0.0:${PORT}`);
+    console.log(`sonnetmdp server running on http://0.0.0.0:${PORT}`);
   });
 }
 

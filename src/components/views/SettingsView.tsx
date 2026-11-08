@@ -565,7 +565,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
         <div>
           <span className="text-xs font-bold text-white block">
-            Sonnet Music Player Studio · Production Release
+            sonnetmdp Studio · Production Release
           </span>
           <p className="text-[11px] text-slate-400">
             Open-source architecture with native Web Audio DSP pipeline and YouTube streaming.

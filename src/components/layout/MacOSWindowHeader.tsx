@@ -103,7 +103,7 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
             onSelectView('explore');
           }}
           className="flex items-center gap-2.5 cursor-pointer group hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all"
-          title="Return to Homepage (Sonnet Music)"
+          title="Return to Homepage (sonnetmdp)"
         >
           <SonnetLogo size={28} glow={themeId === 'youtube-music' || themeId === 'red-black'} />
           <div className="flex items-center gap-1.5">

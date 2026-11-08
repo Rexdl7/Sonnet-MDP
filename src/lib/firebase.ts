@@ -27,7 +27,7 @@ export const firebaseConfig = {
   messagingSenderId: configFromJson.messagingSenderId || env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
   appId: configFromJson.appId || env.VITE_FIREBASE_APP_ID || '',
   measurementId: configFromJson.measurementId || env.VITE_FIREBASE_MEASUREMENT_ID || '',
-  firestoreDatabaseId: env.VITE_FIREBASE_DATABASE_ID || '',
+  firestoreDatabaseId: configFromJson.firestoreDatabaseId || env.VITE_FIREBASE_DATABASE_ID || '',
 };
 
 // Initialize or retrieve Firebase app instance dynamically
