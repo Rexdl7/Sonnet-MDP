@@ -330,6 +330,12 @@ app.get('/api/music/trending', async (req, res) => {
     GLOBAL: {
       charts: ['YouTube Music Global Top 50', 'Billboard Hot 100 Hits 2026', 'Top Songs Spotify Global'],
       viral: ['Viral Songs Trending TikTok 2026', 'Trending Audio Reel Music Global', 'Viral Hits Global'],
+      energize: ['High Energy Upbeat Pop Dance Hits 2026', 'Energizing Feel Good Music Hits', 'Top Uplifting Dance Anthems'],
+      workout: ['Gym Workout Motivation Music 2026', 'High BPM Hard Hitting Workout Phonk', 'Cardio Fitness Beats'],
+      relax: ['Peaceful Acoustic Relaxing Music', 'Lofi Hip Hop Chill Midnight Beats', 'Calm Sunset Ambient Music'],
+      focus: ['Deep Focus Study Instrumental Music', 'Lofi Study Concentration Beats', 'Ambient Piano for Work & Study'],
+      commute: ['Road Trip Driving Songs Singalong', 'Car Travel Playlist Top Hits', 'Chill Driving Pop Hits'],
+      party: ['Party Hits 2026 Club Dance Anthems', 'Top EDM Dancefloor Bangers', 'Weekend Party Playlist'],
       hiphop: ['Hotlist Hip Hop Rap Hits 2026', 'Top US Hip Hop Traps', 'Metro Boomin Travis Drake Style'],
       pop: ['Today Pop Hits YouTube Music', 'Dua Lipa / Sabrina Carpenter / The Weeknd style', 'Global Pop Anthems'],
       electronic: ['EDM Festival Dance Anthems 2026', 'Synthwave Cyberpunk Chill', 'Deep House Vocal Chill'],

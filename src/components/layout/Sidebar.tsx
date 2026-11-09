@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { ThemeConfig } from '../../utils/themeConfig';
 import { motion } from 'framer-motion';
-import { AdBanner } from '../common/AdBanner';
 
 interface SidebarProps {
   activeView: ActiveView;
@@ -173,11 +172,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ))}
           </div>
         </div>
-      </div>
-
-      {/* Subtle Ad Space */}
-      <div className="px-3 pb-3">
-        <AdBanner slot="1234567890" className="opacity-40 hover:opacity-100 transition-opacity" />
       </div>
 
       {/* Footer Info */}

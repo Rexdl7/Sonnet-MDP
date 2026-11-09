@@ -62,9 +62,6 @@ dependencies {
     
     // Coil
     implementation(libs.coil.compose)
-    
-    // AdMob
-    implementation(libs.play.services.ads)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

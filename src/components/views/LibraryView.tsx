@@ -7,7 +7,6 @@ import {
   FolderPlus, Upload, Music, Heart, Plus, 
   Trash2, Play, HardDrive, Disc, Check, Sparkles, Film, Download, Wifi
 } from 'lucide-react';
-import { AdBanner } from '../common/AdBanner';
 
 interface LibraryViewProps {
   localTracks: Track[];
@@ -277,8 +276,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
       {/* Track List */}
       {activeTab !== 'playlists' && (
-        <>
-          <div className="space-y-1.5 border rounded-3xl p-3 shadow-sm" style={{ backgroundColor: surfaceColor, borderColor }}>
+        <div className="space-y-1.5 border rounded-3xl p-3 shadow-sm" style={{ backgroundColor: surfaceColor, borderColor }}>
             {(() => {
               const listToDisplay =
                 activeTab === 'local'
@@ -377,12 +375,6 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               });
             })()}
           </div>
-
-          {/* Subtle Ad Space at bottom of library */}
-          <div className="mt-8 flex justify-center">
-            <AdBanner slot="0987654321" className="w-full max-w-2xl opacity-50 hover:opacity-100 transition-opacity" />
-          </div>
-        </>
       )}
 
       {/* In-App Offline Downloads View */}
