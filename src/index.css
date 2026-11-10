@@ -136,3 +136,28 @@ input[type="range"].vertical-slider {
   width: 6px;
   height: 140px;
 }
+
+/* Apple-Inspired Unified Frosted Acrylic Liquid Glass Utilities */
+.liquid-glass {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background: linear-gradient(135deg, rgba(18, 18, 24, 0.78), rgba(10, 10, 14, 0.82));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.liquid-glass-nav {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background: linear-gradient(90deg, rgba(12, 12, 16, 0.75), rgba(20, 20, 28, 0.8), rgba(12, 12, 16, 0.75));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.liquid-glass-dock {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background: linear-gradient(135deg, rgba(15, 15, 22, 0.82), rgba(22, 22, 32, 0.86));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+}

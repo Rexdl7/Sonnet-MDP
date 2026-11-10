@@ -89,10 +89,10 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({
         }, 800);
       } else {
         // Direct file download to user's device
-        const downloadUrl = `/api/music/download?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}&quality=${encodeURIComponent(quality)}&type=${encodeURIComponent(mediaType)}`;
+        const downloadUrl = `/api/music/download?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}&quality=${encodeURIComponent(quality)}&type=${encodeURIComponent(mediaType)}&format=mp3`;
         const link = document.createElement('a');
         link.href = downloadUrl;
-        link.setAttribute('download', `${track.title} [${quality}].${mediaType === 'video' ? 'mp4' : 'wav'}`);
+        link.setAttribute('download', `${track.title} [${quality}].${mediaType === 'video' ? 'mp4' : 'mp3'}`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -162,7 +162,7 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({
             <button
               onClick={() => {
                 setMediaType('audio');
-                setQuality('lossless');
+                setQuality('320k');
               }}
               className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
                 mediaType === 'audio'
@@ -171,7 +171,7 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({
               }`}
             >
               <Music className="w-4 h-4" />
-              <span>Audio (.WAV / MP3)</span>
+              <span>Audio (.MP3)</span>
             </button>
           </div>
         </div>

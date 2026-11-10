@@ -50,7 +50,7 @@ export default function App() {
 
   // App & Audio Settings
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const activeTheme = THEMES[settings.appTheme] || THEMES['natural-studio'] || THEMES['youtube-music'];
+  const activeTheme = THEMES[settings.appTheme] || THEMES['youtube-music'];
   const accentColorHex = activeTheme.colors.accent;
 
   useEffect(() => {
@@ -137,6 +137,15 @@ export default function App() {
     }
   });
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((current) => (current === msg ? null : current));
+    }, 2800);
+  };
+
   const handleSaveToInternalStorage = (item: OfflineStoredItem) => {
     setOfflineItems((prev) => {
       const filtered = prev.filter((i) => i.youtubeId !== item.youtubeId);
@@ -144,6 +153,25 @@ export default function App() {
       localStorage.setItem('sonnet_offline_media', JSON.stringify(updated));
       return updated;
     });
+  };
+
+  const handleDirectInAppDownload = (track: Track) => {
+    const offlineItem: OfflineStoredItem = {
+      id: `offline-${track.id}-${Date.now()}`,
+      youtubeId: track.youtubeId,
+      title: track.title,
+      artist: track.artist,
+      duration: track.duration,
+      thumbnailUrl: track.thumbnailUrl,
+      mediaType: track.mediaCategory === 'video' ? 'video' : 'audio',
+      quality: 'lossless (320k)',
+      storageType: 'internal',
+      savedAt: new Date().toISOString(),
+      sizeBytes: 12000000,
+    };
+
+    handleSaveToInternalStorage(offlineItem);
+    showToast(`Saved "${track.title}" to Downloads in Library ✓`);
   };
 
   const handleRemoveOfflineItem = (id: string) => {
@@ -780,10 +808,7 @@ export default function App() {
                         setIsLyricsOpen(true);
                         window.history.pushState({ view: activeView, modal: 'lyrics' }, '');
                       }}
-                      onDownloadTrack={(track) => {
-                        setDownloadTrack(track);
-                        window.history.pushState({ view: activeView, modal: 'download' }, '');
-                      }}
+                      onDownloadTrack={(track) => handleDirectInAppDownload(track)}
                       onOpenVideo={(track) => {
                         playTrack(track);
                         navigateToView('video');
@@ -816,10 +841,7 @@ export default function App() {
                         playTrack(track);
                         navigateToView('video');
                       }}
-                      onDownloadTrack={(track) => {
-                        setDownloadTrack(track);
-                        window.history.pushState({ view: activeView, modal: 'download' }, '');
-                      }}
+                      onDownloadTrack={(track) => handleDirectInAppDownload(track)}
                       onOpenCredits={setCreditsTrack}
                       currentTrackId={currentTrack?.id}
                       likedTrackIds={likedTrackIds}
@@ -851,10 +873,7 @@ export default function App() {
                         setVideoMode('pip');
                         navigateToView('explore');
                       }}
-                      onDownloadTrack={(track) => {
-                        setDownloadTrack(track);
-                        window.history.pushState({ view: activeView, modal: 'download' }, '');
-                      }}
+                      onDownloadTrack={(track) => handleDirectInAppDownload(track)}
                       onSaveToInternalStorage={handleSaveToInternalStorage}
                       accentColorHex={accentColorHex}
                     />
@@ -900,6 +919,21 @@ export default function App() {
             </AnimatePresence>
           </div>
         </main>
+
+        {/* Floating Liquid Glass Toast Notification */}
+        <AnimatePresence>
+          {toastMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] px-5 py-2.5 rounded-full bg-[#121216]/98 border border-emerald-500/50 text-emerald-300 text-xs font-bold shadow-2xl backdrop-blur-2xl flex items-center gap-2 select-none pointer-events-none"
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{toastMessage}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Mobile Mini Player Docked Above Tabs */}
         <MobileMiniPlayer
@@ -969,10 +1003,7 @@ export default function App() {
             onToggleLike={() => currentTrack && handleToggleLike(currentTrack.id)}
             onOpenEqualizer={() => navigateToView('equalizer')}
             onOpenVideo={() => navigateToView('video')}
-            onOpenDownload={(track: Track) => {
-              setDownloadTrack(track);
-              window.history.pushState({ view: activeView, modal: 'download' }, '');
-            }}
+            onOpenDownload={(track: Track) => handleDirectInAppDownload(track)}
             onOpenCredits={setCreditsTrack}
             qualityBadge={qualityBadge}
             isVideoActive={activeView === 'video'}
@@ -1015,6 +1046,7 @@ export default function App() {
           navigateToView('equalizer');
           setIsMobileSheetOpen(false);
         }}
+        onDownloadTrack={(track) => handleDirectInAppDownload(track)}
         accentColorHex={accentColorHex}
         theme={activeTheme}
       />
@@ -1054,6 +1086,7 @@ export default function App() {
         isOpen={!!downloadTrack}
         track={downloadTrack}
         onClose={() => setDownloadTrack(null)}
+        onSaveToInternalStorage={handleSaveToInternalStorage}
         accentColorHex={accentColorHex}
       />
 

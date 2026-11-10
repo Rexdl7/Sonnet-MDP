@@ -26,19 +26,13 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
   ];
 
   const isLight = theme?.category === 'light';
-  const bgColor = isLight ? 'rgba(255, 255, 255, 0.75)' : 'rgba(18, 18, 18, 0.75)';
   const textColor = theme?.colors.text || (isLight ? '#0F172A' : '#FFFFFF');
   const textMuted = theme?.colors.textMuted || (isLight ? '#64748B' : '#94A3B8');
-  const borderColor = isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)';
 
   return (
     <div className="md:hidden fixed bottom-3 inset-x-3 z-40 max-w-md mx-auto pointer-events-auto">
       <nav 
-        className="relative h-14 rounded-full backdrop-blur-3xl p-1.5 grid grid-cols-5 items-center select-none shadow-[0_12px_36px_rgba(0,0,0,0.35)] border overflow-hidden"
-        style={{
-          backgroundColor: bgColor,
-          borderColor: borderColor,
-        }}
+        className="relative h-14 rounded-full backdrop-blur-[24px] bg-gradient-to-r from-black/75 via-[#16161D]/75 to-black/75 p-1.5 grid grid-cols-5 items-center select-none shadow-[0_16px_40px_rgba(0,0,0,0.5)] border border-white/15 overflow-hidden"
       >
         {/* Specular Top Highlight Edge */}
         <div className="absolute top-0 inset-x-4 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
@@ -93,4 +87,6 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
     </div>
   );
 };
+
+
 

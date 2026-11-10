@@ -1,112 +1,81 @@
-# SimpMusic Experience Overhaul (maxrave-dev Inspired)
+# Implementation Plan: YouTube Music API Integration, Playlist Management & Apple HIG Media Playback
 
-Transform **sonnetmdp** into a fast, 100% ad-free, open-source music player inspired by **SimpMusic** (by maxrave-dev). This overhaul strips out all advertising code, resolves React runtime hook conflicts, delivers rich YouTube Music recommendation feeds (Moods, Quick Picks, Similar Artists, Charts), and introduces a dynamic ambient glow player with fluid gesture controls and offline-first storage.
-
----
-
-### User Review & Critical Decisions
-
-> [!IMPORTANT]
-> The advertising infrastructure (AdSense/AdMob scripts, meta tags, and components) will be completely removed. All library data, playlists, and listening history will run on high-performance offline-first local storage (IndexedDB/localStorage) with optional direct YouTube Music library sync.
-
-- **Confirmed Decision 1**: Completely remove the ad system (AdSense tags, scripts, `AdBanner`, and AdMob Android configurations) for an uninterrupted, clean listening experience.
-- **Confirmed Decision 2**: Full SimpMusic YouTube Music recommendation feed: Moods & Moments (Energize, Workout, Relax, Focus, Commute), Quick Picks, Similar to Top Artists, and Global/Local Charts.
-- **Confirmed Decision 3**: SimpMusic-style Now Playing experience featuring dynamic album artwork ambient blur, animated waveforms, synchronized lyrics, and a fluid gesture-driven bottom sheet.
-- **Confirmed Decision 4**: Offline-first local library architecture that works out of the box with zero login requirements, while keeping optional Google YouTube Music sync for importing liked songs and playlists.
-- **Confirmed Decision 5**: Fix React 19 hook duplication and renderer binding errors (`Cannot read properties of null (reading 'useRef')`) via strict dependency deduplication in Vite.
+Integrate the YouTube Music search API with tabbed filters (Songs, Artists, Albums, Videos), Apple Music-inspired playlist management (action sheets to add tracks to existing playlists or create new ones), and complete Apple HIG-compliant media playback UI.
 
 ---
 
-### 1. Overview & Core Concept
+## User Review Required
 
-- **What It Does**: A sleek, client-side, ad-free streaming player powered by YouTube Music and local audio, matching the fluidity, design language, and recommendation depth of **SimpMusic**.
-- **Target Audience**: Music listeners who want instant, jitter-free playback, rich personalized algorithmic recommendations, real-time synchronized lyrics, and zero ad interruptions.
-- **Key Value**: Delivers the responsiveness of a native Material 3 / SimpMusic mobile client directly in the browser and Android app, backed by a resilient offline-first store.
-
----
-
-### 2. User Experience & Visual Design
-
-#### A. SimpMusic Home Feed (Discovery & Recommendations)
-1. **Moods & Moments Bar**: Top horizontal capsule selector with SimpMusic categories:
-   - `Energize` (Upbeat, Electronic, Pop)
-   - `Workout` (High-tempo, Phonk, Trap)
-   - `Relax` (Lo-Fi, Acoustic, Ambient)
-   - `Focus` (Instrumental, Neo-classical, Chillhop)
-   - `Commute` (Trending Hits, Melodic)
-2. **Quick Picks Shelf**: 4x2 grid of instant tracks tailored to the user's recent vibe, with one-tap play and radio launcher buttons.
-3. **"Similar to [Artist]" Horizontal Carousel**: Rich card strip featuring track thumbnails, artist credits, and instant station creation.
-4. **YouTube Music Charts**: Global and regional top tracks with rank badges and play counters.
-5. **Infinite Vibe Radio**: Playing any track immediately queues contextual, seamless Up-Next tracks without gaps or dead ends.
-
-#### B. SimpMusic Now Playing & Smoothness
-- **Dynamic Ambient Glow**: Dynamic dual-stop mesh gradient extracted from the active track's cover art using ColorThief/Canvas, softly backlighting the player without performance drops.
-- **Fluid Bottom Sheet & MiniPlayer**:
-  - Docked mobile mini-player with swipe-to-skip gestures, progressive scrub bar, and play/pause toggle.
-  - Expanding fullscreen Now Playing sheet with spring physics (`stiffness: 380, damping: 32`), oversized album artwork with rounded squircle geometry (`rounded-3xl`), and real-time lyric sync.
-- **Synchronized Lyrics**: Smooth automatic vertical scrolling with line-highlighting powered by LRCLIB and YouTube Music subtitle streams.
+> [!NOTE]
+> - **Search Filter Tabs**: As requested, search results will provide a tabbed Apple-style segmented control filter for **Songs**, **Artists**, **Albums**, and **Videos**.
+> - **Apple Music Action Sheet**: Tapping the context action on any track will open an Apple Music-style frosted action sheet to add the track to an existing playlist or instantly create a new playlist.
+> - **Apple HIG Media Playback**: The player bar and now playing sheets will maintain liquid glass aesthetics, fluid scrubbing, accurate monospace timing, dynamic album artwork lighting, and Apple-consistent controls.
 
 ---
 
-### 3. Key Product Decisions & Trade-Offs
+## Proposed Changes
 
-- **Decision 1: Complete Ad System Eradication**
-  - *Chosen Approach*: Fully delete `AdBanner.tsx`, `MONETIZATION.md`, Google AdSense scripts/meta tags from `index.html`, and AdMob dependencies from Android manifests.
-  - *Why*: Directly satisfies the user request to remove ads and aligns with SimpMusic's open-source, non-commercial philosophy.
-- **Decision 2: Offline-First Local Store vs Mandatory Firebase**
-  - *Chosen Approach*: Store user favorites, custom playlists, downloads, and history in browser IndexedDB/localStorage with transparent export/import, while supporting direct YouTube OAuth library sync.
-  - *Why*: Eliminates setup friction, removes missing Firebase config errors, and ensures 100% offline functionality.
-- **Decision 3: React Hook Deduplication & Vite Bundle Optimization**
-  - *Chosen Approach*: Configure `resolve.dedupe: ['react', 'react-dom']` and `optimizeDeps.include: ['react', 'react-dom']` in `vite.config.ts`, and clear stale `.vite` cache.
-  - *Why*: Resolves the `Cannot read properties of null (reading 'useRef')` error caused by multiple React instances bundled in Vite dependencies.
+### 1. YouTube Music API Endpoint Enhancement (`server.ts`)
+- Enhance `/api/music/search` to support a `filter` parameter (`songs`, `artists`, `albums`, `videos`, or `all`).
+- When `filter=artists`, fetch and parse artist profiles, subscriber counts, and high-resolution artist images from YouTube Music endpoints.
+- When `filter=albums`, fetch album releases with track counts, release years, and cover artwork.
+- When `filter=videos`, return YouTube official music videos and live performances.
+- When `filter=songs` or `all`, return top tracks with duration, artist, and high-res thumbnails.
+
+### 2. Tabbed Search Interface (`src/components/views/SearchView.tsx`)
+- Implement Apple HIG segmented tab bar: **All**, **Songs**, **Artists**, **Albums**, **Videos**.
+- **Artists View**:
+  - Circular avatar cards with artist photo, subscriber count, and verified badge.
+  - Tapping an artist displays their top songs and allows 1-tap playback.
+- **Albums View**:
+  - Squircle album artwork with album name, artist, year, and track count.
+  - Tapping an album queues or plays the album.
+- **Songs & Videos View**:
+  - Fluid row items with duration, play trigger, like button, and the **Apple Music 3-dot action menu** to add to playlists.
+
+### 3. Apple Music Playlist Action Sheet (`src/components/common/ApplePlaylistActionSheet.tsx`)
+- Build a new Apple HIG frosted action sheet:
+  - Frosted liquid glass backdrop blur (`backdrop-blur-2xl`), specular highlights, and rounded-3xl corners.
+  - Track preview header (title, artist, squircle artwork).
+  - Quick action: **"New Playlist..."** with inline title/description input and Apple-style rounded inputs.
+  - List of user playlists showing playlist cover, title, and current track count.
+  - 1-tap track addition with animated checkmark and floating liquid glass toast notification.
+  - Ability to remove tracks or manage playlist items.
+
+### 4. Playlist Detail View & Queue Playback (`src/components/views/LibraryView.tsx` & `src/App.tsx`)
+- Expand `LibraryView.tsx` so tapping a playlist card opens an Apple Music-style playlist details view:
+  - Large playlist header with composite artwork, title, track count, total duration, and description.
+  - Prominent **Play** and **Shuffle** Apple HIG action pills.
+  - Complete list of tracks in the playlist with drag/swipe actions and delete options.
+  - 1-tap playback that queues all playlist tracks and plays sequentially.
+
+### 5. Apple HIG Media Playback Polish (`src/components/player/FloatingPlayerBar.tsx` & `MobileNowPlayingSheet.tsx`)
+- Ensure Apple Music Cupertino Glass mode and player elements adhere strictly to Apple HIG:
+  - Fluid scrubbers with elapsed/remaining timestamps in SF Mono / monospace font.
+  - Large rounded-3xl squircle cover art with dynamic ambient bloom.
+  - Volume slider with Apple-style speaker iconography and smooth scrubbing.
+  - AirPlay / output device route button.
+  - Action pill buttons with subtle specular borders and haptic feedback.
 
 ---
 
-### 4. Technical Architecture & Data Strategy
+## Verification Plan
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                   SimpMusic Architecture (sonnetmdp)                   │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-          ┌─────────────────────────┴─────────────────────────┐
-          ▼                                                   ▼
-┌───────────────────────────────┐           ┌────────────────────────────────┐
-│   SimpMusic Discovery Core    │           │    Fluid Playback & Engine     │
-├───────────────────────────────┤           ├────────────────────────────────┤
-│ - Moods & Moments Filter Bar  │           │ - YouTube IFrame Streamer      │
-│ - Quick Picks (YouTube Music) │           │ - HTML5 Web Audio DSP Engine   │
-│ - "Similar To" Station Radio  │           │ - Infinite Next-Radio Buffer   │
-│ - Top Charts & Viral Hits     │           │ - MediaSession Lockscreen API  │
-└──────────────┬────────────────┘           └───────────────┬────────────────┘
-               │                                            │
-               └──────────────────────┬─────────────────────┘
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                 SimpMusic UI & Ambient Design System                   │
-├────────────────────────────────────────────────────────────────────────┤
-│ - Dynamic Album Artwork Mesh Glow (ColorThief RGB extraction)          │
-│ - Fluid Fullscreen Now Playing Sheet (Framer Motion spring physics)    │
-│ - Synced Lyrics View with Smooth Line Tracking                         │
-│ - 100% Ad-Free Surface (Zero AdSense / Zero AdMob)                     │
-│ - Offline-First Local Storage (Playlists, Liked Tracks, History)       │
-└────────────────────────────────────────────────────────────────────────┘
-```
+### Automated Tests
+- Run `compile_applet` (`npm run build`) to ensure TypeScript compilation and asset bundling succeed.
+- Run `lint_applet` (`tsc --noEmit`) to verify zero type or lint errors.
 
-#### Step-by-Step Implementation Sequence
-1. **Fix Vite & React Hook Binding**:
-   - Update `vite.config.ts` with explicit `resolve.dedupe: ['react', 'react-dom']` and `optimizeDeps: { include: ['react', 'react-dom'] }`.
-   - Clear stale prebundled `.vite` cache to eliminate hook crashes.
-2. **Ad System Cleanup**:
-   - Verify removal of all `AdBanner` instances, AdSense script tags in `index.html`, and Android manifest AdMob metadata.
-3. **SimpMusic Recommendation Service Overhaul (`src/services/youtubeSearchService.ts` & `src/services/youtubeOAuthService.ts`)**:
-   - Implement Moods & Moments categorized queries (`Energize`, `Workout`, `Relax`, `Focus`, `Commute`).
-   - Enhance the continuous radio algorithm (`generateUpNextRadio`) to mimic YouTube Music's InnerTube autoplay stream.
-4. **SimpMusic Home View (`src/components/views/ExploreView.tsx`)**:
-   - Build SimpMusic Moods chip bar with active state pill-free indicators.
-   - Assemble Quick Picks, Similar Artists, and Chart grids with hover scale and ambient card lighting.
-5. **Smooth Player & Ambient Backing (`src/components/player/MobileNowPlayingSheet.tsx` & `src/App.tsx`)**:
-   - Integrate dominant color ambient backdrop filter for the Now Playing sheet and player bar.
-   - Refine animation easing curves to 60fps compositor-only transforms.
-6. **Compilation & Verification**:
-   - Run `compile_applet` and `lint_applet` to guarantee error-free compilation and fluid execution.
+### Manual Verification
+1. **Search YouTube Music**:
+   - Search for popular artists (e.g. "The Weeknd", "Taylor Swift", "Coldplay").
+   - Toggle through **Songs**, **Artists**, **Albums**, and **Videos** tabs to confirm distinct card/row presentations.
+2. **Apple Music Playlist Action Sheet**:
+   - Click the 3-dot action button on any search result or now-playing song.
+   - Verify the Apple Music action sheet opens with frosted glass styling.
+   - Select "New Playlist", create a playlist named "Chill Night", and confirm the track is added.
+   - Add another track to "Chill Night" and verify the playlist track count increments.
+3. **Playlist Playback**:
+   - Go to **Library -> Playlists** tab.
+   - Tap "Chill Night", inspect the tracks, tap "Play", and verify sequential playback.
+4. **Apple HIG Playback Interface**:
+   - Inspect the floating player bar and mobile now-playing sheet for liquid glass, monospace timestamps, and fluid volume/scrubbing controls.

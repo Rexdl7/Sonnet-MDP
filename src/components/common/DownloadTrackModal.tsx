@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Download, X, Check, Loader2, Disc3, Sparkles } from 'lucide-react';
-import { Track } from '../../types/media';
+import { Track, OfflineStoredItem } from '../../types/media';
 
 interface DownloadTrackModalProps {
   isOpen: boolean;
   onClose: () => void;
   track: Track | null;
+  onSaveToInternalStorage?: (item: OfflineStoredItem) => void;
   accentColorHex?: string;
 }
 
@@ -13,6 +14,7 @@ export const DownloadTrackModal: React.FC<DownloadTrackModalProps> = ({
   isOpen,
   onClose,
   track,
+  onSaveToInternalStorage,
   accentColorHex = '#FA2D48',
 }) => {
   const [quality, setQuality] = useState<'lossless' | '320k' | '192k'>('lossless');
@@ -25,14 +27,34 @@ export const DownloadTrackModal: React.FC<DownloadTrackModalProps> = ({
     setIsDownloading(true);
     setDownloadSuccess(false);
 
-    // Trigger download via anchor
-    const url = `/api/music/download?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}&quality=${quality}`;
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${track.title} - ${track.artist}.wav`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // 1. Save directly to In-App Offline Downloads tab in Library
+    const offlineItem: OfflineStoredItem = {
+      id: `offline-${track.id}-${Date.now()}`,
+      youtubeId: track.youtubeId,
+      title: track.title,
+      artist: track.artist,
+      duration: track.duration,
+      thumbnailUrl: track.thumbnailUrl,
+      mediaType: 'audio',
+      quality,
+      storageType: 'internal',
+      savedAt: new Date().toISOString(),
+      sizeBytes: quality === 'lossless' ? 18000000 : 6000000,
+    };
+
+    try {
+      const storedRaw = localStorage.getItem('sonnet_offline_media') || '[]';
+      const list: OfflineStoredItem[] = JSON.parse(storedRaw);
+      const filtered = list.filter((i) => i.youtubeId !== track.youtubeId);
+      filtered.unshift(offlineItem);
+      localStorage.setItem('sonnet_offline_media', JSON.stringify(filtered.slice(0, 50)));
+    } catch {
+      // ignore
+    }
+
+    if (onSaveToInternalStorage) {
+      onSaveToInternalStorage(offlineItem);
+    }
 
     setTimeout(() => {
       setIsDownloading(false);
@@ -41,7 +63,7 @@ export const DownloadTrackModal: React.FC<DownloadTrackModalProps> = ({
         setDownloadSuccess(false);
         onClose();
       }, 1400);
-    }, 800);
+    }, 600);
   };
 
   const qualityOptions = [

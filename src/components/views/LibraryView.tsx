@@ -382,79 +382,111 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         <div className="space-y-3">
           {offlineItems.length === 0 ? (
             <div className="py-20 text-center text-slate-500 space-y-3 bg-white/5 rounded-3xl border border-white/5 p-8">
-              <Download className="w-12 h-12 mx-auto text-slate-600" />
+              <Download className="w-12 h-12 mx-auto text-red-500" />
               <p className="text-sm font-semibold text-slate-300">No offline downloads saved yet.</p>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                In the Video Theater or while playing any song, click "Download Media" and choose "In-App Offline Storage" to save videos and songs for offline playback without internet.
+                Tap Download on any track or video to store it directly in this tab for instant offline playback without internet.
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400 px-2 pb-1">
-                <span>Stored Media ({offlineItems.length} items)</span>
-                <span>Storage: ~{(offlineItems.reduce((acc, i) => acc + (i.sizeBytes || 10000000), 0) / (1024 * 1024)).toFixed(0)} MB IndexedDB</span>
-              </div>
-              {offlineItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-slate-900/40 hover:bg-slate-900/70 border border-white/10 transition-all group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="relative w-16 h-12 rounded-xl overflow-hidden shrink-0 bg-black">
-                      <img
-                        src={item.thumbnailUrl}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        onClick={() => {
-                          const track: Track = {
-                            id: item.id,
-                            youtubeId: item.youtubeId,
-                            title: item.title,
-                            artist: item.artist,
-                            album: 'Offline Downloads',
-                            duration: item.duration,
-                            thumbnailUrl: item.thumbnailUrl,
-                            source: 'youtube',
-                            mediaUrl: item.blobUrl || `https://www.youtube.com/watch?v=${item.youtubeId}`,
-                            videoUrl: `https://www.youtube.com/embed/${item.youtubeId}`,
-                          };
-                          onPlayTrack(track);
-                        }}
-                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Play className="w-5 h-5 text-white fill-white" />
-                      </button>
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-bold text-white truncate">{item.title}</h4>
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-white/10 text-red-400">
-                          {item.mediaType.toUpperCase()} ({item.quality.toUpperCase()})
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 truncate">{item.artist}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] font-mono text-slate-500">
-                      {formatTime(item.duration)}
-                    </span>
-                    {onRemoveOfflineItem && (
-                      <button
-                        onClick={() => onRemoveOfflineItem(item.id)}
-                        className="p-2 text-slate-500 hover:text-red-400 transition-colors"
-                        title="Remove offline copy"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs text-slate-400 px-1 pb-1 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-white">Stored Offline Tracks ({offlineItems.length})</span>
+                  <button
+                    onClick={() => {
+                      if (offlineItems.length > 0) {
+                        const firstTrack: Track = {
+                          id: offlineItems[0].id,
+                          youtubeId: offlineItems[0].youtubeId,
+                          title: offlineItems[0].title,
+                          artist: offlineItems[0].artist,
+                          album: 'Offline Downloads',
+                          duration: offlineItems[0].duration,
+                          thumbnailUrl: offlineItems[0].thumbnailUrl,
+                          source: 'youtube',
+                          mediaUrl: offlineItems[0].blobUrl || `https://www.youtube.com/watch?v=${offlineItems[0].youtubeId}`,
+                          videoUrl: `https://www.youtube.com/embed/${offlineItems[0].youtubeId}`,
+                        };
+                        onPlayTrack(firstTrack);
+                      }
+                    }}
+                    className="flex items-center gap-1 px-3 py-1 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-[11px] transition-all shadow active:scale-95 ml-2"
+                  >
+                    <Play className="w-3 h-3 fill-white" />
+                    <span>Play All</span>
+                  </button>
                 </div>
-              ))}
+                <span className="font-mono text-[10px]">
+                  ~{(offlineItems.reduce((acc, i) => acc + (i.sizeBytes || 10000000), 0) / (1024 * 1024)).toFixed(0)} MB In-App Cache
+                </span>
+              </div>
+
+              {offlineItems.map((item) => {
+                const trackToPlay: Track = {
+                  id: item.id,
+                  youtubeId: item.youtubeId,
+                  title: item.title,
+                  artist: item.artist,
+                  album: 'Offline Downloads',
+                  duration: item.duration,
+                  thumbnailUrl: item.thumbnailUrl,
+                  source: 'youtube',
+                  mediaUrl: item.blobUrl || `https://www.youtube.com/watch?v=${item.youtubeId}`,
+                  videoUrl: `https://www.youtube.com/embed/${item.youtubeId}`,
+                };
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => onPlayTrack(trackToPlay)}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-slate-900/40 hover:bg-slate-900/80 border border-white/10 hover:border-red-500/40 transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative w-16 h-12 rounded-xl overflow-hidden shrink-0 bg-black">
+                        <img
+                          src={item.thumbnailUrl}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-5 h-5 text-white fill-white" />
+                        </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-white truncate group-hover:text-red-400 transition-colors">
+                            {item.title}
+                          </h4>
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                            OFFLINE READY ✓
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 truncate">{item.artist}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[11px] font-mono text-slate-500">
+                        {formatTime(item.duration)}
+                      </span>
+                      {onRemoveOfflineItem && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveOfflineItem(item.id);
+                          }}
+                          className="p-2 text-slate-500 hover:text-red-400 transition-colors"
+                          title="Remove offline copy"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

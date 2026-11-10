@@ -12,6 +12,7 @@ import { ThemeConfig } from '../../utils/themeConfig';
 import { motion } from 'framer-motion';
 import { CustomScrubber } from '../common/CustomScrubber';
 import { triggerHaptic } from '../../utils/haptics';
+import { AmbientArtworkGlowCanvas } from './AmbientArtworkGlowCanvas';
 
 interface FloatingPlayerBarProps {
   currentTrack: Track | null;
@@ -123,11 +124,22 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 h-16 select-none">
           {/* Left: Artwork, Track Title, Artist, Heart Icon */}
           <div className="flex items-center gap-3.5 min-w-0 w-1/4">
-            <img
-              src={currentTrack.thumbnailUrl}
-              alt={currentTrack.title}
-              className="w-14 h-14 rounded-md object-cover shadow-md shrink-0"
-            />
+            <div className="relative shrink-0 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none -z-0">
+                <AmbientArtworkGlowCanvas
+                  thumbnailUrl={currentTrack.thumbnailUrl}
+                  isPlaying={isPlaying}
+                  accentColorHex="#1DB954"
+                  className="w-16 h-16"
+                  glowScale={1.6}
+                />
+              </div>
+              <img
+                src={currentTrack.thumbnailUrl}
+                alt={currentTrack.title}
+                className="relative z-10 w-14 h-14 rounded-xl object-cover shadow-md shrink-0 border border-white/10"
+              />
+            </div>
             <div className="min-w-0">
               <h4 className="text-sm font-semibold text-white truncate hover:underline cursor-pointer">
                 {currentTrack.title}
@@ -288,7 +300,7 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
           -------------------------------------------------------------------------- */}
       <div 
         style={{ display: isYouTube ? 'block' : 'none' }}
-        className="fixed bottom-0 inset-x-0 z-40 bg-[#0A0A0A] border-t border-[#262626] pointer-events-auto transition-all"
+        className="fixed bottom-0 inset-x-0 z-40 bg-gradient-to-r from-black/85 via-[#121218]/85 to-black/85 backdrop-blur-[24px] border-t border-white/10 pointer-events-auto transition-all shadow-2xl"
       >
         {/* Full-width Top Frosted Scrubber Line */}
         <div className="w-full -mt-2 px-0">
@@ -307,11 +319,22 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 h-16 px-4 select-none">
           {/* Left: Track Details */}
           <div className="flex items-center gap-3 min-w-0 w-1/3">
-            <img
-              src={currentTrack.thumbnailUrl}
-              alt={currentTrack.title}
-              className="w-12 h-12 rounded object-cover shadow"
-            />
+            <div className="relative shrink-0 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none -z-0">
+                <AmbientArtworkGlowCanvas
+                  thumbnailUrl={currentTrack.thumbnailUrl}
+                  isPlaying={isPlaying}
+                  accentColorHex={accentColorHex}
+                  className="w-16 h-16"
+                  glowScale={1.6}
+                />
+              </div>
+              <img
+                src={currentTrack.thumbnailUrl}
+                alt={currentTrack.title}
+                className="relative z-10 w-12 h-12 rounded-xl object-cover shadow border border-white/10"
+              />
+            </div>
             <div className="min-w-0">
               <h4 className="text-sm font-bold text-white truncate">{currentTrack.title}</h4>
               <p className="text-xs text-[#AAAAAA] truncate">{currentTrack.artist}</p>
@@ -423,10 +446,8 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
         className="fixed bottom-4 left-4 right-4 max-w-6xl mx-auto z-40 pointer-events-auto transition-all"
       >
         <div 
-          className="h-20 px-4 md:px-8 flex items-center justify-between gap-4 select-none transition-all duration-300 relative rounded-3xl backdrop-blur-3xl border shadow-[0_20px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+          className="h-20 px-4 md:px-8 flex items-center justify-between gap-4 select-none transition-all duration-300 relative rounded-3xl backdrop-blur-[24px] bg-gradient-to-r from-black/80 via-[#181822]/80 to-black/80 border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden"
           style={{
-            backgroundColor: bgColor,
-            borderColor: borderColor,
             color: textColor,
           }}
         >
@@ -449,11 +470,20 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
 
           {/* Left: Track Details */}
           <div className="flex items-center gap-3.5 min-w-0 w-1/4">
-            <div className="relative shrink-0">
+            <div className="relative shrink-0 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none -z-0">
+                <AmbientArtworkGlowCanvas
+                  thumbnailUrl={currentTrack.thumbnailUrl}
+                  isPlaying={isPlaying}
+                  accentColorHex={accentColorHex}
+                  className="w-16 h-16"
+                  glowScale={1.6}
+                />
+              </div>
               <img
                 src={currentTrack.thumbnailUrl}
                 alt={currentTrack.title}
-                className="w-12 h-12 rounded-2xl object-cover shadow-lg border"
+                className="relative z-10 w-12 h-12 rounded-2xl object-cover shadow-lg border"
                 style={{ borderColor }}
               />
             </div>
