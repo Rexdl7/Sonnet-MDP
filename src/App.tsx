@@ -33,6 +33,7 @@ import { DownloadTrackModal } from './components/common/DownloadTrackModal';
 import { SongCreditsModal } from './components/common/SongCreditsModal';
 import { PWAInstallModal } from './components/common/PWAInstallModal';
 import { SonnetmdpAuthModal } from './components/common/SonnetmdpAuthModal';
+import { ApplePlaylistActionSheet } from './components/common/ApplePlaylistActionSheet';
 import { THEMES } from './utils/themeConfig';
 
 import { AnimatePresence, motion } from 'framer-motion';
@@ -62,6 +63,7 @@ export default function App() {
   // Track download & credits modal states
   const [downloadTrack, setDownloadTrack] = useState<Track | null>(null);
   const [creditsTrack, setCreditsTrack] = useState<Track | null>(null);
+  const [playlistActionTrack, setPlaylistActionTrack] = useState<Track | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   // Audio Quality Badge display
@@ -214,6 +216,11 @@ export default function App() {
       isPoppingStateRef.current = true;
 
       // 1. Close any open modals/sheets in a single clean step
+      if (playlistActionTrack) {
+        setPlaylistActionTrack(null);
+        setTimeout(() => { isPoppingStateRef.current = false; }, 50);
+        return;
+      }
       if (downloadTrack) {
         setDownloadTrack(null);
         setTimeout(() => { isPoppingStateRef.current = false; }, 50);
@@ -580,7 +587,7 @@ export default function App() {
   };
 
   // Create custom playlist
-  const handleCreatePlaylist = (title: string, description: string) => {
+  const handleCreatePlaylist = (title: string, description: string): Playlist => {
     const newPl: Playlist = {
       id: `pl-${Date.now()}`,
       title,
@@ -596,6 +603,53 @@ export default function App() {
     if (currentUser) {
       saveUserPlaylist(currentUser.uid, newPl);
     }
+    return newPl;
+  };
+
+  const handleAddTrackToPlaylist = (playlistId: string, track: Track) => {
+    setPlaylists((prev) => {
+      const updated = prev.map((pl) => {
+        if (pl.id !== playlistId) return pl;
+        const currentTrackIds = pl.trackIds || [];
+        const currentTracks = pl.tracks || [];
+        if (currentTrackIds.includes(track.id)) return pl;
+        const newTrackIds = [...currentTrackIds, track.id];
+        const newTracks = [...currentTracks, track];
+        const updatedPl: Playlist = {
+          ...pl,
+          trackIds: newTrackIds,
+          tracks: newTracks,
+          coverUrl: pl.coverUrl || track.thumbnailUrl,
+        };
+        if (currentUser) {
+          saveUserPlaylist(currentUser.uid, updatedPl);
+        }
+        return updatedPl;
+      });
+      return updated;
+    });
+    showToast(`Added "${track.title}" to playlist ✓`);
+  };
+
+  const handleRemoveTrackFromPlaylist = (playlistId: string, trackId: string) => {
+    setPlaylists((prev) => {
+      const updated = prev.map((pl) => {
+        if (pl.id !== playlistId) return pl;
+        const newTrackIds = (pl.trackIds || []).filter((id) => id !== trackId);
+        const newTracks = (pl.tracks || []).filter((t) => t.id !== trackId);
+        const updatedPl: Playlist = {
+          ...pl,
+          trackIds: newTrackIds,
+          tracks: newTracks,
+        };
+        if (currentUser) {
+          saveUserPlaylist(currentUser.uid, updatedPl);
+        }
+        return updatedPl;
+      });
+      return updated;
+    });
+    showToast('Removed track from playlist');
   };
 
   // Global keyboard shortcuts
@@ -843,6 +897,7 @@ export default function App() {
                       }}
                       onDownloadTrack={(track) => handleDirectInAppDownload(track)}
                       onOpenCredits={setCreditsTrack}
+                      onOpenAddToPlaylist={(track) => setPlaylistActionTrack(track)}
                       currentTrackId={currentTrack?.id}
                       likedTrackIds={likedTrackIds}
                       onToggleLike={handleToggleLike}
@@ -905,6 +960,8 @@ export default function App() {
                       onToggleLike={handleToggleLike}
                       playlists={playlists}
                       onCreatePlaylist={handleCreatePlaylist}
+                      onRemoveTrackFromPlaylist={handleRemoveTrackFromPlaylist}
+                      onOpenAddToPlaylist={(track) => setPlaylistActionTrack(track)}
                       currentTrackId={currentTrack?.id}
                       accentColorHex={accentColorHex}
                       offlineItems={offlineItems}

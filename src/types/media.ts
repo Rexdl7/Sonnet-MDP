@@ -33,6 +33,24 @@ export interface EqualizerPreset {
   preamp: number; // in dB
 }
 
+export interface ArtistItem {
+  id: string;
+  name: string;
+  thumbnailUrl: string;
+  subscribers?: string;
+  verified?: boolean;
+  genre?: string;
+}
+
+export interface AlbumItem {
+  id: string;
+  title: string;
+  artist: string;
+  thumbnailUrl: string;
+  year?: string | number;
+  trackCount?: number;
+}
+
 export interface Playlist {
   id: string;
   title?: string;

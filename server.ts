@@ -28,10 +28,10 @@ const ai = geminiApiKey
   : null;
 
 // YouTube search helper supporting music, video, and direct URLs
-async function searchYouTube(rawQuery: string, mode: 'music' | 'video' | 'all' = 'music') {
+async function searchYouTube(rawQuery: string, mode: 'music' | 'video' | 'all' = 'music', filter: 'all' | 'songs' | 'artists' | 'albums' | 'videos' = 'all') {
   try {
     const query = rawQuery.trim();
-    if (!query) return [];
+    if (!query) return { results: [], artists: [], albums: [] };
 
     // Check if query is a direct YouTube URL or raw video ID
     let directVideoId: string | null = null;
@@ -43,7 +43,7 @@ async function searchYouTube(rawQuery: string, mode: 'music' | 'video' | 'all' =
     }
 
     if (directVideoId) {
-      return [{
+      const single = [{
         id: `yt-${directVideoId}`,
         youtubeId: directVideoId,
         title: query.replace(/^https?:\/\/[^\/]+\//, '') || 'YouTube Video',
@@ -59,11 +59,24 @@ async function searchYouTube(rawQuery: string, mode: 'music' | 'video' | 'all' =
         publishedAt: 'Now',
         mediaCategory: mode === 'video' ? 'video' : 'music',
       }];
+      return { results: single, artists: [], albums: [] };
     }
 
-    // Build search URL
-    const suffix = mode === 'music' ? ' audio music' : '';
-    const filterParam = mode === 'music' ? '&sp=EgIQAQ%253D%253D' : '';
+    // Build search URL based on filter
+    let suffix = ' audio music';
+    let filterParam = '&sp=EgIQAQ%253D%253D'; // default videos
+
+    if (filter === 'artists') {
+      suffix = ' artist topic';
+      filterParam = '';
+    } else if (filter === 'albums') {
+      suffix = ' full album playlist';
+      filterParam = '&sp=EgIQAw%253D%253D'; // playlists
+    } else if (filter === 'videos' || mode === 'video') {
+      suffix = ' official music video';
+      filterParam = '';
+    }
+
     const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query + suffix)}${filterParam}`;
 
     const res = await fetch(url, {
@@ -74,17 +87,64 @@ async function searchYouTube(rawQuery: string, mode: 'music' | 'video' | 'all' =
     });
     const html = await res.text();
     const match = html.match(/var ytInitialData = ({.*?});<\/script>/s) || html.match(/ytInitialData\s*=\s*({.*?});/s);
-    if (!match) return [];
+    if (!match) return { results: [], artists: [], albums: [] };
 
     const data = JSON.parse(match[1]);
     const contents = data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents;
     const items: any[] = [];
+    const artists: any[] = [];
+    const albums: any[] = [];
+    const seenArtists = new Set<string>();
 
     if (contents && Array.isArray(contents)) {
       for (const section of contents) {
         const itemSection = section.itemSectionRenderer?.contents;
         if (itemSection && Array.isArray(itemSection)) {
           for (const item of itemSection) {
+            // Channel / Artist Renderer
+            if (item.channelRenderer) {
+              const c = item.channelRenderer;
+              const channelId = c.channelId;
+              const title = c.title?.simpleText || c.title?.runs?.[0]?.text || '';
+              const subs = c.subscriberCountText?.simpleText || c.videoCountText?.simpleText || 'Verified Artist';
+              const thumbUrl = c.thumbnail?.thumbnails?.[0]?.url?.startsWith('//')
+                ? 'https:' + c.thumbnail.thumbnails[0].url
+                : (c.thumbnail?.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${channelId}/hqdefault.jpg`);
+              
+              const cleanArtistName = title.replace(/ - Topic$/i, '').trim();
+              if (cleanArtistName && !seenArtists.has(cleanArtistName.toLowerCase())) {
+                seenArtists.add(cleanArtistName.toLowerCase());
+                artists.push({
+                  id: `artist-${channelId}`,
+                  name: cleanArtistName,
+                  thumbnailUrl: thumbUrl,
+                  subscribers: subs,
+                  verified: true,
+                  genre: 'Artist',
+                });
+              }
+            }
+
+            // Playlist / Album Renderer
+            if (item.playlistRenderer) {
+              const p = item.playlistRenderer;
+              const playlistId = p.playlistId;
+              const title = p.title?.simpleText || p.title?.runs?.[0]?.text || '';
+              const author = p.shortBylineText?.runs?.[0]?.text || 'Various Artists';
+              const countStr = p.videoCount || 'Album';
+              const thumbUrl = p.thumbnails?.[0]?.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${playlistId}/hqdefault.jpg`;
+
+              albums.push({
+                id: `album-${playlistId}`,
+                title: title.replace(/[\(\[](Full\s*)?(Album|Playlist)[\)\]]/gi, '').trim() || title,
+                artist: author.replace(/ - Topic$/i, '').trim(),
+                thumbnailUrl: thumbUrl,
+                year: '2024',
+                trackCount: parseInt(countStr, 10) || 12,
+              });
+            }
+
+            // Video / Song Renderer
             if (item.videoRenderer) {
               const v = item.videoRenderer;
               const id = v.videoId;
@@ -100,55 +160,82 @@ async function searchYouTube(rawQuery: string, mode: 'music' | 'video' | 'all' =
               const viewText = v.viewCountText?.simpleText || v.shortViewCountText?.simpleText || '';
               const publishedText = v.publishedTimeText?.simpleText || '';
 
-              // Clean music titles if music mode
-              const cleanTitle = mode === 'music'
+              const cleanTitle = (mode === 'music' && filter !== 'videos')
                 ? title.replace(/[\(\[](Official\s*)?(Music\s*)?(Video|Audio|Lyric\s*Video|HD|4K|Visualizer)[\)\]]/gi, '').trim()
                 : title.trim();
 
               const thumb = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+              const cleanArtist = channel.replace(/ - Topic$/i, '') || 'YouTube Creator';
+
+              // Automatically synthesize artist card if not already collected
+              if (!seenArtists.has(cleanArtist.toLowerCase()) && artists.length < 8) {
+                seenArtists.add(cleanArtist.toLowerCase());
+                artists.push({
+                  id: `artist-${cleanArtist.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+                  name: cleanArtist,
+                  thumbnailUrl: thumb,
+                  subscribers: viewText ? `${viewText.replace('views', '').trim()} listeners` : 'Verified Artist',
+                  verified: true,
+                  genre: 'Popular Artist',
+                });
+              }
+
+              // Extract album card if title indicates album
+              if (title.toLowerCase().includes('album') && albums.length < 8) {
+                albums.push({
+                  id: `album-${id}`,
+                  title: cleanTitle,
+                  artist: cleanArtist,
+                  thumbnailUrl: thumb,
+                  year: publishedText || '2024',
+                  trackCount: 10,
+                });
+              }
 
               items.push({
                 id: `yt-${id}`,
                 youtubeId: id,
                 title: cleanTitle || title,
-                artist: channel.replace(/ - Topic$/i, '') || 'YouTube Creator',
-                album: mode === 'video' ? 'YouTube' : 'YouTube Music',
+                artist: cleanArtist,
+                album: mode === 'video' || filter === 'videos' ? 'YouTube' : 'YouTube Music',
                 duration: durationSec,
                 thumbnailUrl: thumb,
                 source: 'youtube',
                 mediaUrl: `https://www.youtube.com/watch?v=${id}`,
                 videoUrl: `https://www.youtube.com/embed/${id}`,
-                genre: mode === 'video' ? 'Entertainment' : 'Popular',
+                genre: mode === 'video' || filter === 'videos' ? 'Entertainment' : 'Popular',
                 viewCount: viewText,
                 publishedAt: publishedText,
-                mediaCategory: mode === 'video' ? 'video' : 'music',
+                mediaCategory: (mode === 'video' || filter === 'videos') ? 'video' : 'music',
               });
 
-              if (items.length >= 24) break;
+              if (items.length >= 28) break;
             }
           }
         }
-        if (items.length >= 24) break;
+        if (items.length >= 28) break;
       }
     }
 
-    return items;
+    return { results: items, artists, albums };
   } catch (error) {
     console.error('YouTube search error:', error);
-    return [];
+    return { results: [], artists: [], albums: [] };
   }
 }
 
-// Live YouTube music search endpoint
+// Live YouTube music search endpoint with tabbed filter support
 app.get('/api/music/search', async (req, res) => {
   const query = (req.query.q as string || '').trim();
   const mode = (req.query.mode as any) || 'music';
+  const filter = (req.query.filter as any) || 'all';
+
   if (!query) {
-    return res.json({ results: [] });
+    return res.json({ results: [], artists: [], albums: [] });
   }
 
-  const results = await searchYouTube(query, mode);
-  return res.json({ results });
+  const { results, artists, albums } = await searchYouTube(query, mode, filter);
+  return res.json({ results, artists, albums });
 });
 
 // Real-time YouTube Live Search Autocomplete Suggestions Proxy
@@ -396,9 +483,10 @@ app.get('/api/music/related', async (req, res) => {
     return res.json({ results: [] });
   }
 
-  const results = await searchYouTube(query, 'music');
+  const searchData = await searchYouTube(query, 'music');
+  const results = searchData.results || [];
   // Filter out the seed track and any excluded IDs
-  const filtered = results.filter((track) => {
+  const filtered = results.filter((track: any) => {
     if (exclude.includes(track.id) || exclude.includes(track.youtubeId || '')) return false;
     if (track.title.toLowerCase().includes(cleanTitle.toLowerCase()) && 
         track.artist.toLowerCase().includes(cleanArtist.toLowerCase())) {
@@ -453,7 +541,8 @@ Do NOT wrap in markdown fences or text outside JSON.`;
         if (Array.isArray(parsedSongs) && parsedSongs.length > 0) {
           // Resolve YouTube playable items for top recommendations
           const trackPromises = parsedSongs.slice(0, 8).map(async (s) => {
-            const ytItems = await searchYouTube(`${s.artist} ${s.title}`, 'music');
+            const ytData = await searchYouTube(`${s.artist} ${s.title}`, 'music');
+            const ytItems = ytData.results || [];
             if (ytItems.length > 0) {
               return {
                 ...ytItems[0],
@@ -474,14 +563,16 @@ Do NOT wrap in markdown fences or text outside JSON.`;
     }
 
     // Algorithmic fallback if AI key not configured or failed
-    const fallbackResults = await searchYouTube(`${artist} ${genre} top tracks radio`, 'music');
+    const fallbackData = await searchYouTube(`${artist} ${genre} top tracks radio`, 'music');
+    const fallbackResults = fallbackData.results || [];
     return res.json({
-      results: fallbackResults.slice(0, 8).map((t) => ({ ...t, aiRecommendationReason: 'Sonic Similarity Radio' })),
+      results: fallbackResults.slice(0, 8).map((t: any) => ({ ...t, aiRecommendationReason: 'Sonic Similarity Radio' })),
       source: 'algorithmic',
     });
   } catch (error) {
     console.error('AI recommendation handler error:', error);
-    const fallbackResults = await searchYouTube('Top Global Hits 2026', 'music');
+    const fallbackData = await searchYouTube('Top Global Hits 2026', 'music');
+    const fallbackResults = fallbackData.results || [];
     return res.json({ results: fallbackResults.slice(0, 6), source: 'fallback' });
   }
 });

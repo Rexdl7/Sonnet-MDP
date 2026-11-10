@@ -5,7 +5,8 @@ import { formatTime } from '../../utils/lyricsParser';
 import { ThemeConfig } from '../../utils/themeConfig';
 import { 
   FolderPlus, Upload, Music, Heart, Plus, 
-  Trash2, Play, HardDrive, Disc, Check, Sparkles, Film, Download, Wifi
+  Trash2, Play, HardDrive, Disc, Check, Sparkles, Film, Download, Wifi,
+  ArrowLeft, Shuffle, ListMusic, MoreHorizontal
 } from 'lucide-react';
 
 interface LibraryViewProps {
@@ -17,6 +18,8 @@ interface LibraryViewProps {
   onToggleLike: (trackId: string) => void;
   playlists: Playlist[];
   onCreatePlaylist: (title: string, description: string) => void;
+  onRemoveTrackFromPlaylist?: (playlistId: string, trackId: string) => void;
+  onOpenAddToPlaylist?: (track: Track) => void;
   currentTrackId?: string;
   accentColorHex?: string;
   offlineItems?: OfflineStoredItem[];
@@ -35,6 +38,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onToggleLike,
   playlists,
   onCreatePlaylist,
+  onRemoveTrackFromPlaylist,
+  onOpenAddToPlaylist,
   currentTrackId,
   accentColorHex = '#D97736',
   offlineItems = [],
@@ -52,6 +57,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'all' | 'liked' | 'history' | 'local' | 'playlists' | 'downloads'>('all');
+  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
   const [newPlaylistModal, setNewPlaylistModal] = useState<boolean>(false);
   const [playlistTitle, setPlaylistTitle] = useState<string>('');
   const [playlistDesc, setPlaylistDesc] = useState<string>('');
@@ -243,35 +249,241 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         })}
       </div>
 
-      {/* Playlists Grid View */}
+      {/* Playlists View (Grid or Detailed) */}
       {activeTab === 'playlists' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {playlists.map((pl) => (
-            <div
-              key={pl.id}
-              className="group p-4 rounded-3xl border shadow-sm transition-all flex flex-col justify-between"
-              style={{ backgroundColor: surfaceColor, borderColor }}
-            >
-              <div>
-                <img
-                  src={pl.coverUrl}
-                  alt={pl.title}
-                  className="w-full aspect-square rounded-2xl object-cover mb-3 shadow-md border"
-                  style={{ borderColor }}
-                />
-                <h4 className="text-sm font-bold truncate" style={{ color: textColor }}>{pl.title || pl.name || 'Playlist'}</h4>
-                <p className="text-xs mt-1 line-clamp-2" style={{ color: textMuted }}>{pl.description}</p>
-              </div>
+        <>
+          {selectedPlaylist ? (
+            // Playlist Detailed View
+            (() => {
+              // Get current live version of the selected playlist from playlists state
+              const pl = playlists.find((p) => p.id === selectedPlaylist.id) || selectedPlaylist;
+              const playlistTracks: Track[] = pl.tracks && pl.tracks.length > 0
+                ? pl.tracks
+                : (pl.trackIds || [])
+                    .map((id) => allTracks.find((t) => t.id === id) || INITIAL_TRACKS.find((t) => t.id === id))
+                    .filter((t): t is Track => !!t);
 
-              <div className="flex items-center justify-between text-xs font-mono mt-4 pt-2 border-t" style={{ borderColor, color: textMuted }}>
-                <span>{(pl.trackIds || pl.tracks || []).length} tracks</span>
-                <span className="text-[10px] uppercase tracking-wider">
-                  {pl.isCustom ? 'Custom Mix' : 'Curated'}
-                </span>
-              </div>
+              const totalDuration = playlistTracks.reduce((acc, t) => acc + (t.duration || 0), 0);
+
+              const handlePlayAll = () => {
+                if (playlistTracks.length > 0) {
+                  onPlayTrack(playlistTracks[0], pl.id, playlistTracks);
+                }
+              };
+
+              const handleShuffle = () => {
+                if (playlistTracks.length > 0) {
+                  const shuffled = [...playlistTracks].sort(() => Math.random() - 0.5);
+                  onPlayTrack(shuffled[0], pl.id, shuffled);
+                }
+              };
+
+              return (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  {/* Back button */}
+                  <button
+                    onClick={() => setSelectedPlaylist(null)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-white/10 transition-colors w-fit"
+                    style={{ color: textMuted }}
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Back to Playlists</span>
+                  </button>
+
+                  {/* Playlist Header Card */}
+                  <div 
+                    className="p-6 rounded-3xl border flex flex-col md:flex-row items-center md:items-end gap-6 shadow-xl relative overflow-hidden backdrop-blur-2xl"
+                    style={{ backgroundColor: surfaceColor, borderColor }}
+                  >
+                    <img
+                      src={pl.coverUrl}
+                      alt={pl.title}
+                      className="w-44 h-44 sm:w-48 sm:h-48 rounded-2xl object-cover shadow-2xl shrink-0 border border-white/15"
+                    />
+
+                    <div className="space-y-3 flex-1 min-w-0 text-center md:text-left">
+                      <div className="flex items-center justify-center md:justify-start gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono">
+                          {pl.isCustom ? 'Custom Playlist' : 'Curated Mix'}
+                        </span>
+                        <span className="text-xs font-mono" style={{ color: textMuted }}>
+                          {playlistTracks.length} {playlistTracks.length === 1 ? 'song' : 'songs'}
+                        </span>
+                      </div>
+
+                      <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight truncate" style={{ color: textColor }}>
+                        {pl.title || pl.name || 'Untitled Playlist'}
+                      </h2>
+
+                      {pl.description && (
+                        <p className="text-xs sm:text-sm line-clamp-2 max-w-xl" style={{ color: textMuted }}>
+                          {pl.description}
+                        </p>
+                      )}
+
+                      <div className="text-xs font-mono" style={{ color: textMuted }}>
+                        Total Time: {formatTime(totalDuration)}
+                      </div>
+
+                      {/* Play & Shuffle Action Buttons (Apple HIG Style) */}
+                      <div className="flex items-center justify-center md:justify-start gap-3 pt-2">
+                        <button
+                          onClick={handlePlayAll}
+                          disabled={playlistTracks.length === 0}
+                          className="px-6 py-2.5 rounded-full font-bold text-xs text-white shadow-lg flex items-center gap-2 active:scale-95 transition-all disabled:opacity-40"
+                          style={{ backgroundColor: accentColorHex }}
+                        >
+                          <Play className="w-4 h-4 fill-white ml-0.5" />
+                          <span>Play</span>
+                        </button>
+
+                        <button
+                          onClick={handleShuffle}
+                          disabled={playlistTracks.length === 0}
+                          className="px-6 py-2.5 rounded-full font-bold text-xs border flex items-center gap-2 hover:bg-white/10 active:scale-95 transition-all disabled:opacity-40"
+                          style={{ borderColor, color: textColor }}
+                        >
+                          <Shuffle className="w-4 h-4" />
+                          <span>Shuffle</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Playlist Tracks Table */}
+                  <div className="space-y-1.5 border rounded-3xl p-3 shadow-sm" style={{ backgroundColor: surfaceColor, borderColor }}>
+                    {playlistTracks.length === 0 ? (
+                      <div className="py-16 text-center space-y-2" style={{ color: textMuted }}>
+                        <ListMusic className="w-12 h-12 mx-auto stroke-1" style={{ color: textMuted }} />
+                        <p className="text-sm font-semibold" style={{ color: textColor }}>Playlist is empty</p>
+                        <p className="text-xs max-w-md mx-auto">
+                          Search any song and tap the "Add to Playlist" action to save tracks here.
+                        </p>
+                      </div>
+                    ) : (
+                      playlistTracks.map((track, idx) => {
+                        const isCurrent = currentTrackId === track.id;
+                        const isLiked = likedTrackIds.has(track.id);
+
+                        return (
+                          <div
+                            key={`${track.id}-${idx}`}
+                            onClick={() => onPlayTrack(track, pl.id, playlistTracks)}
+                            className="group flex items-center justify-between gap-3.5 p-3 rounded-2xl transition-all cursor-pointer border hover:border-white/20"
+                            style={{
+                              backgroundColor: isCurrent ? `${accentColorHex}15` : 'transparent',
+                              borderColor: isCurrent ? `${accentColorHex}40` : 'transparent',
+                            }}
+                          >
+                            <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                              <span className="w-6 text-center text-xs font-mono tabular-nums shrink-0" style={{ color: textMuted }}>
+                                {idx + 1}
+                              </span>
+
+                              <img
+                                src={track.thumbnailUrl}
+                                alt={track.title}
+                                className="w-10 h-10 rounded-xl object-cover shadow-sm shrink-0 border"
+                                style={{ borderColor }}
+                              />
+
+                              <div className="min-w-0 flex-1">
+                                <h4
+                                  className="text-xs sm:text-sm font-semibold truncate"
+                                  style={{ color: isCurrent ? accentColorHex : textColor }}
+                                >
+                                  {track.title}
+                                </h4>
+                                <div className="flex items-center gap-1.5 text-[11px] truncate mt-0.5" style={{ color: textMuted }}>
+                                  <span className="truncate">{track.artist}</span>
+                                  <span>·</span>
+                                  <span className="truncate">{track.album}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onToggleLike(track.id);
+                                }}
+                                className="p-2 rounded-xl text-slate-400 hover:text-white transition-colors"
+                                title={isLiked ? 'Unlike' : 'Like'}
+                              >
+                                <Heart
+                                  className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}
+                                  style={{ color: isLiked ? accentColorHex : undefined }}
+                                />
+                              </button>
+
+                              {onRemoveTrackFromPlaylist && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemoveTrackFromPlaylist(pl.id, track.id);
+                                  }}
+                                  className="p-2 rounded-xl text-slate-500 hover:text-red-400 hover:bg-white/10 transition-colors"
+                                  title="Remove from Playlist"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+
+                              <span className="text-xs font-mono tabular-nums text-slate-500 w-12 text-right">
+                                {track.duration > 0 ? formatTime(track.duration) : '--:--'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            // Playlists Grid View
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {playlists.map((pl) => (
+                <div
+                  key={pl.id}
+                  onClick={() => setSelectedPlaylist(pl)}
+                  className="group p-4 rounded-3xl border shadow-sm transition-all flex flex-col justify-between cursor-pointer hover:scale-[1.02] hover:border-white/30"
+                  style={{ backgroundColor: surfaceColor, borderColor }}
+                >
+                  <div className="relative">
+                    <img
+                      src={pl.coverUrl}
+                      alt={pl.title}
+                      className="w-full aspect-square rounded-2xl object-cover mb-3 shadow-md border"
+                      style={{ borderColor }}
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 rounded-2xl flex items-center justify-center transition-opacity mb-3">
+                      <div 
+                        className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-xl transform group-hover:scale-105 transition-transform"
+                        style={{ backgroundColor: accentColorHex }}
+                      >
+                        <Play className="w-5 h-5 fill-white ml-0.5" />
+                      </div>
+                    </div>
+                    <h4 className="text-sm font-bold truncate group-hover:text-red-400 transition-colors" style={{ color: textColor }}>
+                      {pl.title || pl.name || 'Playlist'}
+                    </h4>
+                    <p className="text-xs mt-1 line-clamp-2" style={{ color: textMuted }}>{pl.description}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-mono mt-4 pt-2 border-t" style={{ borderColor, color: textMuted }}>
+                    <span>{(pl.trackIds || pl.tracks || []).length} tracks</span>
+                    <span className="text-[10px] uppercase tracking-wider">
+                      {pl.isCustom ? 'Custom Mix' : 'Curated'}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* Track List */}

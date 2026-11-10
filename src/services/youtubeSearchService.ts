@@ -1,5 +1,53 @@
-import { Track } from '../types/media';
+import { Track, ArtistItem, AlbumItem } from '../types/media';
 import { INITIAL_TRACKS } from '../data/curatedTracks';
+
+export interface YouTubeSearchResults {
+  tracks: Track[];
+  artists: ArtistItem[];
+  albums: AlbumItem[];
+}
+
+export async function searchYouTubeMusicDetailed(
+  query: string,
+  mode: 'music' | 'video' = 'music',
+  filter: 'all' | 'songs' | 'artists' | 'albums' | 'videos' = 'all'
+): Promise<YouTubeSearchResults> {
+  const term = query.trim();
+  if (!term) {
+    try {
+      const res = await fetch('/api/music/trending?category=charts');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results && Array.isArray(data.results)) {
+          return { tracks: data.results, artists: [], albums: [] };
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    return { tracks: INITIAL_TRACKS, artists: [], albums: [] };
+  }
+
+  // Tier 1: Local Express server proxy (/api/music/search)
+  try {
+    const res = await fetch(`/api/music/search?q=${encodeURIComponent(term)}&mode=${mode}&filter=${filter}`);
+    const contentType = res.headers.get('content-type') || '';
+    
+    if (res.ok && contentType.includes('application/json')) {
+      const data = await res.json();
+      const tracks = Array.isArray(data.results) ? data.results : [];
+      const artists = Array.isArray(data.artists) ? data.artists : [];
+      const albums = Array.isArray(data.albums) ? data.albums : [];
+      return { tracks, artists, albums };
+    }
+  } catch (err) {
+    console.warn('Local Express search endpoint error:', err);
+  }
+
+  // Fallback
+  const tracks = await searchYouTubeMusic(query, mode);
+  return { tracks, artists: [], albums: [] };
+}
 
 // Robust multi-tier search service that works both in AI Studio dev environment AND when deployed statically/serverless on custom domains
 export async function searchYouTubeMusic(query: string, mode: 'music' | 'video' = 'music'): Promise<Track[]> {

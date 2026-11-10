@@ -1,6 +1,6 @@
 {
   "name": "sonnetmdp",
-  "description": "High-fidelity frosted acrylic music player featuring online streaming, real-time synchronized lyrics, 10-band graphic studio equalizer, and local audio library.",
+  "description": "High-fidelity frosted acrylic music player featuring YouTube Music streaming, real-time synchronized lyrics, 10-band graphic studio equalizer, and offline music library.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
