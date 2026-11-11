@@ -9,6 +9,7 @@ interface YouTubePlayerProps {
   volume: number;
   isMuted: boolean;
   seekTime: number | null;
+  playbackSpeed?: number;
   onTimeUpdate: (currentTime: number, duration: number) => void;
   onStateChange: (isPlaying: boolean) => void;
   onEnded: () => void;
@@ -32,6 +33,7 @@ export const YouTubePlayer = ({
   volume,
   isMuted,
   seekTime,
+  playbackSpeed = 1.0,
   onTimeUpdate,
   onStateChange,
   onEnded,
@@ -40,6 +42,16 @@ export const YouTubePlayer = ({
   onModeChange,
   accentColorHex = '#FA2D48',
 }: YouTubePlayerProps) => {
+
+  // Sync playback speed
+  useEffect(() => {
+    if (!playerRef.current || !playerRef.current.setPlaybackRate) return;
+    try {
+      playerRef.current.setPlaybackRate(playbackSpeed);
+    } catch (err) {
+      console.warn('Set playback rate notice:', err);
+    }
+  }, [playbackSpeed]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<any>(null);
   const [isApiReady, setIsApiReady] = useState<boolean>(false);

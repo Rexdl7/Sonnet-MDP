@@ -43,11 +43,20 @@ export const MobileMiniPlayer: React.FC<MobileMiniPlayerProps> = ({
 
   return (
     <motion.div
-      onClick={onOpenFullPlayer}
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: 20, opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      onClick={() => {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try { navigator.vibrate(8); } catch {}
+        }
+        onOpenFullPlayer();
+      }}
       drag="x"
       dragConstraints={{ left: 0, right: 0 }}
       onDragEnd={handleDragEnd}
-      className="md:hidden fixed bottom-20 inset-x-3 z-40 max-w-md mx-auto h-14 rounded-2xl backdrop-blur-[24px] bg-gradient-to-r from-black/80 via-[#181822]/80 to-black/80 border border-white/15 shadow-[0_16px_40px_rgba(0,0,0,0.5)] flex items-center justify-between px-3.5 cursor-pointer select-none active:scale-[0.99] transition-all overflow-hidden"
+      className="md:hidden fixed bottom-20 inset-x-3 z-40 max-w-md mx-auto h-14 rounded-2xl backdrop-blur-[24px] bg-gradient-to-r from-black/80 via-[#181822]/80 to-black/80 border border-white/15 shadow-[0_16px_40px_rgba(0,0,0,0.5)] flex items-center justify-between px-3.5 cursor-pointer select-none active:scale-[0.98] transition-all overflow-hidden"
       style={{
         color: textColor,
       }}

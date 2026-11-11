@@ -9,6 +9,13 @@ import { syncUserProfile } from '../services/firebaseService';
 import { UserAuthProfile, Track, Playlist } from '../types/media';
 import { fetchUserYouTubeLikedVideos, fetchUserYouTubePlaylists } from '../services/youtubeOAuthService';
 
+import { 
+  initiateUniversalGoogleSignIn, 
+  getStoredSupabaseAuthProfile, 
+  clearSupabaseAuthProfile,
+  saveSupabaseAuthProfile 
+} from '../services/supabaseAuth';
+
 const LOCAL_STORAGE_AUTH_KEY = 'sonnetmdp_user_profile';
 const LOCAL_STORAGE_YT_TRACKS = 'sonnetmdp_yt_liked_tracks';
 const LOCAL_STORAGE_HISTORY_KEY = 'sonnetmdp_listening_history';
@@ -20,6 +27,8 @@ export function useFirebaseAuth() {
       if (stored) {
         return JSON.parse(stored);
       }
+      const supabaseUser = getStoredSupabaseAuthProfile();
+      if (supabaseUser) return supabaseUser;
     } catch {}
     return null;
   });
@@ -168,14 +177,21 @@ export function useFirebaseAuth() {
       };
       setCurrentUser(profile);
       localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(profile));
+      saveSupabaseAuthProfile(profile);
       return profile;
     } catch (error: any) {
-      console.warn('Google Popup Sign-In notice, attempting redirect:', error);
+      console.warn('Google Popup Sign-In notice, executing Universal Google Auth:', error);
       try {
-        await signInWithRedirect(auth, googleProvider);
+        const universalUser = await initiateUniversalGoogleSignIn();
+        if (universalUser) {
+          setCurrentUser(universalUser);
+          localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(universalUser));
+          saveSupabaseAuthProfile(universalUser);
+          return universalUser;
+        }
         return null;
       } catch (redirectErr: any) {
-        console.error('Sign in error:', redirectErr);
+        console.error('Universal Sign in error:', redirectErr);
         setAuthError(redirectErr?.message || 'Failed to sign in with Google');
         throw redirectErr;
       }
@@ -205,6 +221,7 @@ export function useFirebaseAuth() {
       setYoutubeLikedTracks([]);
       setYoutubePlaylists([]);
       setIsYouTubeSynced(false);
+      clearSupabaseAuthProfile();
       localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
       localStorage.removeItem(LOCAL_STORAGE_YT_TRACKS);
     }

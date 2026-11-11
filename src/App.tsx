@@ -84,6 +84,8 @@ export default function App() {
   const [repeatMode, setRepeatMode] = useState<PlaybackRepeatMode>('off');
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
   const [seekTime, setSeekTime] = useState<number | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+  const [equalizerPreset, setEqualizerPreset] = useState<string>('flat');
 
   // Video display mode: 'theatre' when in video view, 'pip' when popped out, 'hidden' for background audio
   const [videoMode, setVideoMode] = useState<'theatre' | 'pip' | 'hidden'>('hidden');
@@ -652,6 +654,31 @@ export default function App() {
     showToast('Removed track from playlist');
   };
 
+  const handleRenamePlaylist = (playlistId: string, title: string, description: string) => {
+    setPlaylists((prev) => {
+      const updated = prev.map((pl) => {
+        if (pl.id !== playlistId) return pl;
+        const updatedPl: Playlist = {
+          ...pl,
+          title,
+          name: title,
+          description,
+        };
+        if (currentUser) {
+          saveUserPlaylist(currentUser.uid, updatedPl);
+        }
+        return updatedPl;
+      });
+      return updated;
+    });
+    showToast(`Renamed playlist to "${title}"`);
+  };
+
+  const handleDeletePlaylist = (playlistId: string) => {
+    setPlaylists((prev) => prev.filter((pl) => pl.id !== playlistId));
+    showToast('Deleted playlist');
+  };
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -727,6 +754,7 @@ export default function App() {
         volume={volume}
         isMuted={isMuted}
         seekTime={seekTime}
+        playbackSpeed={playbackSpeed}
         onTimeUpdate={(cur, dur) => {
           if (isCurrentYouTube) {
             setCurrentTime(cur);
@@ -867,6 +895,7 @@ export default function App() {
                         playTrack(track);
                         navigateToView('video');
                       }}
+                      onOpenAddToPlaylist={(track) => setPlaylistActionTrack(track)}
                       currentTrack={currentTrack}
                       currentTrackId={currentTrack?.id}
                       likedTrackIds={likedTrackIds}
@@ -961,6 +990,8 @@ export default function App() {
                       playlists={playlists}
                       onCreatePlaylist={handleCreatePlaylist}
                       onRemoveTrackFromPlaylist={handleRemoveTrackFromPlaylist}
+                      onRenamePlaylist={handleRenamePlaylist}
+                      onDeletePlaylist={handleDeletePlaylist}
                       onOpenAddToPlaylist={(track) => setPlaylistActionTrack(track)}
                       currentTrackId={currentTrack?.id}
                       accentColorHex={accentColorHex}
@@ -1029,6 +1060,10 @@ export default function App() {
             isLyricsOpen={isLyricsOpen}
             isQueueOpen={isQueueOpen}
             isLiked={currentTrack ? likedTrackIds.has(currentTrack.id) : false}
+            playbackSpeed={playbackSpeed}
+            onSpeedChange={setPlaybackSpeed}
+            equalizerPreset={equalizerPreset}
+            onPresetChange={setEqualizerPreset}
             onTogglePlay={togglePlay}
             onPrevTrack={handlePrevTrack}
             onNextTrack={handleNextTrack}
@@ -1106,6 +1141,10 @@ export default function App() {
         onDownloadTrack={(track) => handleDirectInAppDownload(track)}
         accentColorHex={accentColorHex}
         theme={activeTheme}
+        queue={userQueue.length > 0 ? userQueue : radioQueue}
+        relatedTracks={radioQueue}
+        onPlayTrack={playTrack}
+        onOpenAddToPlaylist={(track) => setPlaylistActionTrack(track)}
       />
 
       {/* Up Next Queue & Infinite Vibe Radio Drawer */}

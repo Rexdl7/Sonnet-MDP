@@ -7,7 +7,7 @@ import { ThemeConfig } from '../../utils/themeConfig';
 import { 
   Search, Play, Plus, Heart, Mic2, X, Music, 
   Loader2, Sparkles, Youtube, Film, Download,
-  Compass, User, Disc3, ListPlus, MoreHorizontal, Check, CheckCircle2
+  Compass, User, Disc3, ListPlus, MoreHorizontal, Check, CheckCircle2, History
 } from 'lucide-react';
 
 interface SearchViewProps {
@@ -55,6 +55,30 @@ export const SearchView: React.FC<SearchViewProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const debounceTimerRef = useRef<any>(null);
 
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('sonnet_recent_searches') || '["The Weeknd", "Coldplay", "Taylor Swift", "Billie Eilish"]');
+    } catch {
+      return ["The Weeknd", "Coldplay", "Taylor Swift", "Billie Eilish"];
+    }
+  });
+
+  const saveRecentSearch = (term: string) => {
+    const clean = term.trim();
+    if (!clean) return;
+    setRecentSearches((prev) => {
+      const filtered = prev.filter((s) => s.toLowerCase() !== clean.toLowerCase());
+      const updated = [clean, ...filtered].slice(0, 8);
+      localStorage.setItem('sonnet_recent_searches', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    localStorage.removeItem('sonnet_recent_searches');
+  };
+
   const isLight = theme?.category === 'light';
   const bgColor = theme?.colors.bg || '#030303';
   const surfaceColor = theme?.colors.surface || '#141414';
@@ -96,6 +120,9 @@ export const SearchView: React.FC<SearchViewProps> = ({
   // Core YouTube Search Function supporting detailed categorized responses
   const performSearch = async (searchTerm: string, tab: SearchTab = activeTab) => {
     setIsLoading(true);
+    if (searchTerm.trim()) {
+      saveRecentSearch(searchTerm.trim());
+    }
     try {
       const mode = tab === 'videos' ? 'video' : 'music';
       const data = await searchYouTubeMusicDetailed(searchTerm, mode, tab);
@@ -231,6 +258,41 @@ export const SearchView: React.FC<SearchViewProps> = ({
             </button>
           </div>
         </form>
+
+        {/* Recent Searches Bar */}
+        {recentSearches.length > 0 && !activeQuery && (
+          <div className="space-y-1.5 pt-0.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: textMuted }}>
+                <History className="w-3.5 h-3.5" style={{ color: accentColorHex }} />
+                Recent Searches:
+              </span>
+              <button
+                type="button"
+                onClick={clearRecentSearches}
+                className="text-[10px] font-semibold text-slate-400 hover:text-white transition-colors"
+              >
+                Clear History
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {recentSearches.map((term) => (
+                <button
+                  key={term}
+                  onClick={() => {
+                    setEffectiveQuery(term);
+                    performSearch(term, activeTab);
+                  }}
+                  className="px-3 py-1 rounded-full border text-xs font-medium transition-all hover:border-white/30 active:scale-95 flex items-center gap-1.5"
+                  style={{ backgroundColor: surfaceColor, borderColor, color: textColor }}
+                >
+                  <History className="w-3 h-3 opacity-60" />
+                  <span>{term}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Apple HIG Segmented Filter Tabs: All, Songs, Artists, Albums, Videos */}
         <div className="flex items-center gap-1.5 p-1 rounded-2xl border max-w-fit shadow-inner bg-black/20 backdrop-blur-md" style={{ borderColor }}>

@@ -6,7 +6,7 @@ import { ThemeConfig } from '../../utils/themeConfig';
 import { 
   FolderPlus, Upload, Music, Heart, Plus, 
   Trash2, Play, HardDrive, Disc, Check, Sparkles, Film, Download, Wifi,
-  ArrowLeft, Shuffle, ListMusic, MoreHorizontal
+  ArrowLeft, Shuffle, ListMusic, MoreHorizontal, Edit3
 } from 'lucide-react';
 
 interface LibraryViewProps {
@@ -19,6 +19,8 @@ interface LibraryViewProps {
   playlists: Playlist[];
   onCreatePlaylist: (title: string, description: string) => void;
   onRemoveTrackFromPlaylist?: (playlistId: string, trackId: string) => void;
+  onRenamePlaylist?: (playlistId: string, title: string, description: string) => void;
+  onDeletePlaylist?: (playlistId: string) => void;
   onOpenAddToPlaylist?: (track: Track) => void;
   currentTrackId?: string;
   accentColorHex?: string;
@@ -39,6 +41,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   playlists,
   onCreatePlaylist,
   onRemoveTrackFromPlaylist,
+  onRenamePlaylist,
+  onDeletePlaylist,
   onOpenAddToPlaylist,
   currentTrackId,
   accentColorHex = '#D97736',
@@ -61,6 +65,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [newPlaylistModal, setNewPlaylistModal] = useState<boolean>(false);
   const [playlistTitle, setPlaylistTitle] = useState<string>('');
   const [playlistDesc, setPlaylistDesc] = useState<string>('');
+  const [renameModalPlaylist, setRenameModalPlaylist] = useState<Playlist | null>(null);
+  const [editTitle, setEditTitle] = useState<string>('');
+  const [editDesc, setEditDesc] = useState<string>('');
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
@@ -326,7 +333,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       </div>
 
                       {/* Play & Shuffle Action Buttons (Apple HIG Style) */}
-                      <div className="flex items-center justify-center md:justify-start gap-3 pt-2">
+                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5 pt-2">
                         <button
                           onClick={handlePlayAll}
                           disabled={playlistTracks.length === 0}
@@ -346,6 +353,38 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                           <Shuffle className="w-4 h-4" />
                           <span>Shuffle</span>
                         </button>
+
+                        {pl.isCustom && onRenamePlaylist && (
+                          <button
+                            onClick={() => {
+                              setRenameModalPlaylist(pl);
+                              setEditTitle(pl.title || pl.name || '');
+                              setEditDesc(pl.description || '');
+                            }}
+                            className="px-4 py-2.5 rounded-full border flex items-center gap-1.5 hover:bg-white/10 active:scale-95 transition-all text-xs font-semibold"
+                            style={{ borderColor, color: textColor }}
+                            title="Rename Playlist"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Rename</span>
+                          </button>
+                        )}
+
+                        {pl.isCustom && onDeletePlaylist && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete "${pl.title || pl.name}"?`)) {
+                                onDeletePlaylist(pl.id);
+                                setSelectedPlaylist(null);
+                              }
+                            }}
+                            className="px-4 py-2.5 rounded-full border border-red-500/30 text-red-400 hover:bg-red-500/10 active:scale-95 transition-all text-xs font-semibold flex items-center gap-1.5"
+                            title="Delete Playlist"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -752,6 +791,73 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   style={{ backgroundColor: accentColorHex }}
                 >
                   Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Playlist Modal */}
+      {renameModalPlaylist && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900/90 border border-white/20 rounded-3xl p-6 shadow-2xl space-y-4 backdrop-blur-3xl text-white">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Edit3 className="w-4 h-4 text-red-500" />
+              <span>Rename Playlist</span>
+            </h3>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!editTitle.trim()) return;
+                if (onRenamePlaylist) {
+                  onRenamePlaylist(renameModalPlaylist.id, editTitle.trim(), editDesc.trim());
+                }
+                setRenameModalPlaylist(null);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">
+                  Playlist Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 outline-none"
+                  style={{ borderColor: accentColorHex }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">
+                  Description (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRenameModalPlaylist(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl text-xs font-semibold text-white shadow-lg"
+                  style={{ backgroundColor: accentColorHex }}
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

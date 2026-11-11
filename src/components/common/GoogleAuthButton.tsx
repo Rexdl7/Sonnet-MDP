@@ -34,11 +34,11 @@ export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
       {!user ? (
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-3.5 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 bg-[#222227] hover:bg-[#2C2C33] text-[#F2EFE9] border border-white/10 transition-all shadow-sm active:scale-95 font-sans"
+          className="px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-gradient-to-r from-red-600 to-rose-600 sm:from-[#222227] sm:to-[#222227] hover:brightness-110 text-white border border-white/20 transition-all shadow-md active:scale-95 font-sans shrink-0"
           title="Connect your Google Account to sync YouTube liked music and listening history"
         >
           {/* Google SVG Icon */}
-          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5 shrink-0 bg-white rounded-full p-0.5" viewBox="0 0 24 24">
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -56,7 +56,7 @@ export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
             />
           </svg>
-          <span className="hidden sm:inline">Connect YouTube</span>
+          <span className="inline text-[11px] sm:text-xs font-bold whitespace-nowrap">Google Sign-In</span>
         </button>
       ) : (
         <div className="relative">

@@ -13,6 +13,7 @@ import { motion } from 'framer-motion';
 import { CustomScrubber } from '../common/CustomScrubber';
 import { triggerHaptic } from '../../utils/haptics';
 import { AmbientArtworkGlowCanvas } from './AmbientArtworkGlowCanvas';
+import { AdvancedPlaybackControls } from '../common/AdvancedPlaybackControls';
 
 interface FloatingPlayerBarProps {
   currentTrack: Track | null;
@@ -26,6 +27,10 @@ interface FloatingPlayerBarProps {
   isLyricsOpen: boolean;
   isQueueOpen: boolean;
   isLiked: boolean;
+  playbackSpeed?: number;
+  onSpeedChange?: (speed: number) => void;
+  equalizerPreset?: string;
+  onPresetChange?: (preset: string) => void;
   onTogglePlay: () => void;
   onPrevTrack: () => void;
   onNextTrack: () => void;
@@ -60,6 +65,10 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
   isLyricsOpen,
   isQueueOpen,
   isLiked,
+  playbackSpeed = 1.0,
+  onSpeedChange = () => {},
+  equalizerPreset = 'flat',
+  onPresetChange = () => {},
   onTogglePlay,
   onPrevTrack,
   onNextTrack,
@@ -687,6 +696,15 @@ export const FloatingPlayerBar: React.FC<FloatingPlayerBarProps> = ({
                 </button>
               </div>
             )}
+
+            <AdvancedPlaybackControls
+              playbackSpeed={playbackSpeed}
+              onSpeedChange={onSpeedChange}
+              equalizerPreset={equalizerPreset}
+              onPresetChange={onPresetChange}
+              isAudioOnly={!isVideoActive}
+              className="hidden sm:flex"
+            />
 
             <motion.button
               whileHover={{ scale: 1.1 }}

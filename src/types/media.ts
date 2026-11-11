@@ -68,7 +68,8 @@ export interface UserAuthProfile {
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
-  isAnonymous: boolean;
+  isAnonymous?: boolean;
+  providerId?: string;
 }
 
 export interface OfflineStoredItem {

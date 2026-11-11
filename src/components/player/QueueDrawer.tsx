@@ -4,9 +4,9 @@ import { formatTime } from '../../utils/lyricsParser';
 import { ThemeConfig } from '../../utils/themeConfig';
 import { 
   ListMusic, X, Play, Trash2, ArrowUp, ArrowDown, 
-  Sparkles, Radio, RefreshCw, Plus, History, Disc3 
+  Sparkles, Radio, RefreshCw, Plus, History, Disc3, GripVertical 
 } from 'lucide-react';
-import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { motion, AnimatePresence, Variants, Reorder } from 'framer-motion';
 
 interface QueueDrawerProps {
   isOpen: boolean;
@@ -199,37 +199,54 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
               {/* TAB 1: QUEUE & UP NEXT */}
               {activeTab === 'queue' && (
                 <>
-                  {/* User Enqueued Songs (Explicit Queue) */}
+                  {/* User Enqueued Songs (Explicit Queue with Framer Motion Drag & Drop Reorder) */}
                   {userQueue.length > 0 && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: textColor }}>
                           Next in Your Queue ({userQueue.length})
                         </span>
+                        <span className="text-[9px] text-zinc-400">Drag items to reorder</span>
                       </div>
 
-                      <div className="space-y-1">
+                      <Reorder.Group
+                        axis="y"
+                        values={userQueue}
+                        onReorder={(newQueue: Track[]) => {
+                          // Find moved track difference or update entire queue
+                          if (newQueue && newQueue.length === userQueue.length) {
+                            for (let i = 0; i < newQueue.length; i++) {
+                              if (newQueue[i].id !== userQueue[i].id) {
+                                const oldIdx = userQueue.findIndex((t) => t.id === newQueue[i].id);
+                                if (oldIdx !== -1) {
+                                  onMoveQueueItem(oldIdx, i);
+                                  break;
+                                }
+                              }
+                            }
+                          }
+                        }}
+                        className="space-y-1"
+                      >
                         {userQueue.map((track, idx) => (
-                          <motion.div
+                          <Reorder.Item
                             key={`user-${track.id}-${idx}`}
-                            custom={idx}
-                            variants={itemVariants}
-                            initial="hidden"
-                            animate="visible"
-                            className="group flex items-center justify-between gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border transition-all"
+                            value={track}
+                            className="group flex items-center justify-between gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border transition-all select-none"
                             style={{ borderColor }}
                           >
+                            <div className="flex items-center gap-1 text-zinc-400 group-hover:text-zinc-200 cursor-grab active:cursor-grabbing p-1">
+                              <GripVertical className="w-4 h-4 shrink-0" />
+                            </div>
+
                             <div
                               onClick={() => onPlayTrack(track)}
                               className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
                             >
-                              <span className="w-4 text-center text-[10px] font-mono tabular-nums shrink-0" style={{ color: textMuted }}>
-                                {idx + 1}
-                              </span>
                               <img
                                 src={track.thumbnailUrl}
                                 alt={track.title}
-                                className="w-9 h-9 rounded-lg object-cover shrink-0 bg-neutral-900"
+                                className="w-9 h-9 rounded-lg object-cover shrink-0 bg-neutral-900 pointer-events-none"
                               />
                               <div className="min-w-0 flex-1">
                                 <h5 className="text-xs font-semibold truncate">
@@ -269,9 +286,9 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                          </motion.div>
+                          </Reorder.Item>
                         ))}
-                      </div>
+                      </Reorder.Group>
                     </div>
                   )}
 
