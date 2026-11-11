@@ -795,11 +795,12 @@ export default function App() {
 
       {/* Main Workspace Stage */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden">
-        {/* macOS Top Window Header */}
-        <MacOSWindowHeader
-          activeView={activeView}
-          onSelectView={navigateToView}
-          currentTrack={currentTrack}
+        {/* macOS Top Window Header - hidden on mobile when viewing SonTube Theatre (which has its own header) */}
+        {activeView !== 'video' ? (
+          <MacOSWindowHeader
+            activeView={activeView}
+            onSelectView={navigateToView}
+            currentTrack={currentTrack}
           isLyricsOpen={isLyricsOpen}
           onToggleLyrics={() => {
             setIsLyricsOpen((prev) => {
@@ -838,6 +839,7 @@ export default function App() {
           onLogout={logout}
           likedCount={youtubeLikedTracks.length}
         />
+        ) : null}
 
         {/* Viewport Content Stage with Framer Motion Fluid Tab Transitions */}
         <main 
@@ -1038,12 +1040,17 @@ export default function App() {
           theme={activeTheme}
         />
 
-        {/* Mobile Bottom Tab Bar */}
+        {/* Mobile Bottom Tab Bar with Account / Sign In Tab */}
         <MobileTabBar
           activeView={activeView}
           onSelectView={navigateToView}
           accentColorHex={accentColorHex}
           theme={activeTheme}
+          user={currentUser}
+          onOpenAuth={() => {
+            setIsAuthModalOpen(true);
+            window.history.pushState({ view: activeView, modal: 'auth' }, '');
+          }}
         />
 
         {/* Desktop Floating Player Bar */}
@@ -1119,6 +1126,10 @@ export default function App() {
         repeatMode={repeatMode}
         isShuffle={isShuffle}
         isLiked={currentTrack ? likedTrackIds.has(currentTrack.id) : false}
+        playbackSpeed={playbackSpeed}
+        onSpeedChange={setPlaybackSpeed}
+        equalizerPreset={equalizerPreset}
+        onPresetChange={setEqualizerPreset}
         onTogglePlay={togglePlay}
         onPrevTrack={handlePrevTrack}
         onNextTrack={handleNextTrack}

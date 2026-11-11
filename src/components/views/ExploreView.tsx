@@ -107,7 +107,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         // Fetch Global Charts
         const chartsPromise = fetch('/api/music/trending?category=charts')
           .then((r) => (r.ok ? r.json() : { results: [] }))
-          .then((d) => d.results || [])
+          .then((d) => {
+            const raw = d?.results;
+            return Array.isArray(raw)
+              ? raw
+              : Array.isArray(raw?.results)
+              ? raw.results
+              : [];
+          })
           .catch(() => []);
 
         // Fetch Personalized Recommendations
@@ -116,7 +123,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         const [charts, recs] = await Promise.all([chartsPromise, recsPromise]);
 
         if (isMounted) {
-          if (charts.length > 0) {
+          if (Array.isArray(charts) && charts.length > 0) {
             setChartTracks(charts);
           }
           if (recs.quickPicks.length > 0) {
@@ -162,11 +169,21 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     fetch(`/api/music/trending?category=${selectedMood}`)
       .then((r) => (r.ok ? r.json() : { results: [] }))
       .then((data) => {
-        if (isMounted && data.results) {
-          setMoodTracks(data.results);
+        if (isMounted) {
+          // Normalize data.results: handle either Track[] directly or searchYouTube { results: Track[] }
+          const raw = data?.results;
+          const items = Array.isArray(raw)
+            ? raw
+            : Array.isArray(raw?.results)
+            ? raw.results
+            : [];
+          setMoodTracks(items);
         }
       })
-      .catch((err) => console.warn('Failed to load mood tracks:', err))
+      .catch((err) => {
+        console.warn('Failed to load mood tracks:', err);
+        if (isMounted) setMoodTracks([]);
+      })
       .finally(() => {
         if (isMounted) setIsLoadingMood(false);
       });
@@ -234,27 +251,27 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
       {/* Prominent Google Sign-In Banner for Mobile & Web Users */}
       {!user && onOpenAuthModal && (
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-red-950/80 via-[#1C1215] to-[#121218] border border-red-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-red-600 flex items-center justify-center text-white shrink-0 shadow-md">
-              <Youtube className="w-5 h-5 fill-white" />
+        <div className="relative z-20 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-red-950/90 via-[#1C1215] to-[#121218] border border-red-500/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-red-500/30">
+              <Youtube className="w-6 h-6 fill-white" />
             </div>
-            <div>
-              <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
-                Sync YouTube Music & History
-                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 font-mono">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm sm:text-base font-extrabold text-white flex items-center gap-2">
+                <span>Connect YouTube Music</span>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/40 font-mono tracking-wider">
                   Google Auth
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-300 mt-0.5">
-                Connect Google Account to sync your liked tracks, playlists, and recommendations.
+              <p className="text-xs text-slate-300 mt-0.5 leading-snug">
+                Sync real liked songs, artist radios, and listening history with 1 tap.
               </p>
             </div>
           </div>
 
           <button
             onClick={onOpenAuthModal}
-            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all shrink-0"
+            className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-white hover:bg-slate-100 text-black font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-xl active:scale-95 transition-all shrink-0 touch-manipulation cursor-pointer"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
               <path

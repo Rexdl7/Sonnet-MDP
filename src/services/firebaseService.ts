@@ -9,8 +9,22 @@ import {
   deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { Playlist, Track } from '../types/media';
+import { setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { db, auth, firebaseConfig } from '../lib/firebase';
+import { Playlist, Track, UserAuthProfile } from '../types/media';
+
+/**
+ * Configure explicit browserLocalPersistence across sonnetmdp.vercel.app and local environments
+ */
+export const ensureAuthPersistence = async (): Promise<void> => {
+  try {
+    if (auth && firebaseConfig.apiKey) {
+      await setPersistence(auth, browserLocalPersistence);
+    }
+  } catch (err) {
+    // Non-fatal configuration notice
+  }
+};
 
 export interface UserProfileData {
   id: string;
@@ -33,8 +47,14 @@ export interface StoredDownload {
   fileSize?: string;
 }
 
-export const syncUserProfile = async (profile: UserProfileData) => {
-  const path = `users/${profile.id}`;
+export const syncUserProfile = async (profile: UserProfileData): Promise<void> => {
+  // Always persist profile to local storage
+  try {
+    localStorage.setItem(`sonnet_user_profile_${profile.id}`, JSON.stringify(profile));
+  } catch {}
+
+  if (!firebaseConfig.apiKey || !db) return;
+
   try {
     await setDoc(
       doc(db, 'users', profile.id),
@@ -50,7 +70,7 @@ export const syncUserProfile = async (profile: UserProfileData) => {
       { merge: true }
     );
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
+    console.warn('Firebase profile sync notice (offline or unconfigured):', err);
   }
 };
 
@@ -58,10 +78,16 @@ export const syncUserLibrary = async (
   userId: string,
   likedTrackIds: string[],
   historyTracks: Track[]
-) => {
-  const path = `user_libraries/${userId}`;
+): Promise<void> => {
+  // Mirror library in local storage
   try {
-    // Only store minimal info for history to respect document limits
+    localStorage.setItem(`sonnet_likes_${userId}`, JSON.stringify(likedTrackIds));
+    localStorage.setItem(`sonnet_history_${userId}`, JSON.stringify(historyTracks.slice(0, 50)));
+  } catch {}
+
+  if (!firebaseConfig.apiKey || !db) return;
+
+  try {
     const safeHistory = historyTracks.slice(0, 30).map((t) => ({
       id: t.id,
       title: t.title,
@@ -82,7 +108,7 @@ export const syncUserLibrary = async (
       { merge: true }
     );
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
+    console.warn('Firebase library sync notice:', err);
   }
 };
 
@@ -90,46 +116,83 @@ export const subscribeUserLibrary = (
   userId: string,
   onUpdate: (data: { likedTrackIds: string[]; history: Track[] }) => void
 ) => {
-  const path = `user_libraries/${userId}`;
-  return onSnapshot(
-    doc(db, 'user_libraries', userId),
-    (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        onUpdate({
-          likedTrackIds: Array.isArray(data.likedTrackIds) ? data.likedTrackIds : [],
-          history: Array.isArray(data.history) ? data.history : [],
-        });
-      }
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+  // Initial fill from local storage
+  try {
+    const localLikes = JSON.parse(localStorage.getItem(`sonnet_likes_${userId}`) || '[]');
+    const localHistory = JSON.parse(localStorage.getItem(`sonnet_history_${userId}`) || '[]');
+    if (localLikes.length > 0 || localHistory.length > 0) {
+      onUpdate({ likedTrackIds: localLikes, history: localHistory });
     }
-  );
+  } catch {}
+
+  if (!firebaseConfig.apiKey || !db) {
+    return () => {};
+  }
+
+  try {
+    return onSnapshot(
+      doc(db, 'user_libraries', userId),
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          onUpdate({
+            likedTrackIds: Array.isArray(data.likedTrackIds) ? data.likedTrackIds : [],
+            history: Array.isArray(data.history) ? data.history : [],
+          });
+        }
+      },
+      (error) => {
+        console.warn('User library snapshot notice:', error);
+      }
+    );
+  } catch (err) {
+    return () => {};
+  }
 };
 
-export const saveUserPlaylist = async (userId: string, playlist: Playlist) => {
-  const path = `playlists/${playlist.id}`;
+export const saveUserPlaylist = async (userId: string, playlist: Playlist): Promise<void> => {
+  // Save in local storage
+  try {
+    const storedPlaylists: Playlist[] = JSON.parse(localStorage.getItem(`sonnet_playlists_${userId}`) || '[]');
+    const filtered = storedPlaylists.filter((p) => p.id !== playlist.id);
+    localStorage.setItem(`sonnet_playlists_${userId}`, JSON.stringify([playlist, ...filtered]));
+  } catch {}
+
+  if (!firebaseConfig.apiKey || !db) return;
+
   try {
     await setDoc(doc(db, 'playlists', playlist.id), {
       id: playlist.id,
       userId,
-      name: playlist.name,
+      name: playlist.name || playlist.title || 'Untitled Playlist',
       description: playlist.description || '',
       tracks: playlist.tracks || [],
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
+    console.warn('Firebase save playlist notice:', err);
   }
 };
 
-export const deleteUserPlaylist = async (playlistId: string) => {
-  const path = `playlists/${playlistId}`;
+export const deleteUserPlaylist = async (playlistId: string): Promise<void> => {
+  try {
+    // Delete from all user playlist buckets in local storage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('sonnet_playlists_')) {
+        const stored = JSON.parse(localStorage.getItem(key) || '[]');
+        const updated = stored.filter((p: any) => p.id !== playlistId);
+        localStorage.setItem(key, JSON.stringify(updated));
+      }
+    }
+  } catch {}
+
+  if (!firebaseConfig.apiKey || !db) return;
+
   try {
     await deleteDoc(doc(db, 'playlists', playlistId));
   } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, path);
+    console.warn('Firebase delete playlist notice:', err);
   }
 };
 
@@ -137,40 +200,64 @@ export const subscribeUserPlaylists = (
   userId: string,
   onUpdate: (playlists: Playlist[]) => void
 ) => {
-  const path = 'playlists';
-  const q = query(collection(db, path), where('userId', '==', userId));
-  return onSnapshot(
-    q,
-    (snap) => {
-      const list: Playlist[] = [];
-      snap.forEach((d) => {
-        const data = d.data();
-        list.push({
-          id: data.id || d.id,
-          name: data.name || 'Untitled Playlist',
-          description: data.description || '',
-          tracks: Array.isArray(data.tracks) ? data.tracks : [],
-          coverUrl: data.coverUrl,
-          createdAt: data.createdAt ? String(data.createdAt) : undefined,
-        });
-      });
-      onUpdate(list);
-    },
-    (err) => {
-      handleFirestoreError(err, OperationType.LIST, path);
+  // Initial local storage fill
+  try {
+    const stored = JSON.parse(localStorage.getItem(`sonnet_playlists_${userId}`) || '[]');
+    if (Array.isArray(stored) && stored.length > 0) {
+      onUpdate(stored);
     }
-  );
+  } catch {}
+
+  if (!firebaseConfig.apiKey || !db) {
+    return () => {};
+  }
+
+  try {
+    const path = 'playlists';
+    const q = query(collection(db, path), where('userId', '==', userId));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list: Playlist[] = [];
+        snap.forEach((d) => {
+          const data = d.data();
+          list.push({
+            id: data.id || d.id,
+            name: data.name || data.title || 'Untitled Playlist',
+            description: data.description || '',
+            tracks: Array.isArray(data.tracks) ? data.tracks : [],
+            coverUrl: data.coverUrl,
+            createdAt: data.createdAt ? String(data.createdAt) : undefined,
+          });
+        });
+        onUpdate(list);
+      },
+      (err) => {
+        console.warn('Playlists snapshot notice:', err);
+      }
+    );
+  } catch (err) {
+    return () => {};
+  }
 };
 
-export const recordUserDownload = async (download: StoredDownload) => {
-  const path = `downloads/${download.id}`;
+export const recordUserDownload = async (download: StoredDownload): Promise<void> => {
+  try {
+    const key = `sonnet_downloads_${download.userId}`;
+    const stored = JSON.parse(localStorage.getItem(key) || '[]');
+    const filtered = stored.filter((d: any) => d.id !== download.id);
+    localStorage.setItem(key, JSON.stringify([download, ...filtered]));
+  } catch {}
+
+  if (!firebaseConfig.apiKey || !db) return;
+
   try {
     await setDoc(doc(db, 'downloads', download.id), {
       ...download,
       downloadedAt: new Date().toISOString(),
     });
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
+    console.warn('Firebase download record notice:', err);
   }
 };
 
@@ -178,19 +265,35 @@ export const subscribeUserDownloads = (
   userId: string,
   onUpdate: (downloads: StoredDownload[]) => void
 ) => {
-  const path = 'downloads';
-  const q = query(collection(db, path), where('userId', '==', userId));
-  return onSnapshot(
-    q,
-    (snap) => {
-      const list: StoredDownload[] = [];
-      snap.forEach((d) => {
-        list.push(d.data() as StoredDownload);
-      });
-      onUpdate(list);
-    },
-    (err) => {
-      handleFirestoreError(err, OperationType.LIST, path);
+  try {
+    const key = `sonnet_downloads_${userId}`;
+    const stored = JSON.parse(localStorage.getItem(key) || '[]');
+    if (Array.isArray(stored) && stored.length > 0) {
+      onUpdate(stored);
     }
-  );
+  } catch {}
+
+  if (!firebaseConfig.apiKey || !db) {
+    return () => {};
+  }
+
+  try {
+    const path = 'downloads';
+    const q = query(collection(db, path), where('userId', '==', userId));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list: StoredDownload[] = [];
+        snap.forEach((d) => {
+          list.push(d.data() as StoredDownload);
+        });
+        onUpdate(list);
+      },
+      (err) => {
+        console.warn('Downloads snapshot notice:', err);
+      }
+    );
+  } catch (err) {
+    return () => {};
+  }
 };

@@ -5,7 +5,7 @@ import {
   getRedirectResult, signOut, testConnection, firebaseConfig,
   setCachedAccessToken, getAccessToken
 } from '../lib/firebase';
-import { syncUserProfile } from '../services/firebaseService';
+import { syncUserProfile, ensureAuthPersistence } from '../services/firebaseService';
 import { UserAuthProfile, Track, Playlist } from '../types/media';
 import { fetchUserYouTubeLikedVideos, fetchUserYouTubePlaylists } from '../services/youtubeOAuthService';
 
@@ -62,6 +62,7 @@ export function useFirebaseAuth() {
   const [isFirebaseOnline, setIsFirebaseOnline] = useState<boolean>(false);
 
   useEffect(() => {
+    ensureAuthPersistence();
     testConnection().then((online) => {
       setIsFirebaseOnline(online);
     });
@@ -141,6 +142,7 @@ export function useFirebaseAuth() {
 
   const loginWithGoogle = async (): Promise<UserAuthProfile | null> => {
     setAuthError(null);
+    await ensureAuthPersistence();
 
     try {
       const result = await signInWithPopup(auth, googleProvider);

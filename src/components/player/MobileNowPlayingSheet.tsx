@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeConfig } from '../../utils/themeConfig';
 import { CustomScrubber } from '../common/CustomScrubber';
 
+import { AdvancedPlaybackControls } from '../common/AdvancedPlaybackControls';
 import { useSheetDragSync } from '../../hooks/useSheetDragSync';
 
 interface MobileNowPlayingSheetProps {
@@ -27,6 +28,10 @@ interface MobileNowPlayingSheetProps {
   repeatMode: PlaybackRepeatMode;
   isShuffle: boolean;
   isLiked: boolean;
+  playbackSpeed?: number;
+  onSpeedChange?: (speed: number) => void;
+  equalizerPreset?: string;
+  onPresetChange?: (preset: string) => void;
   onTogglePlay: () => void;
   onPrevTrack: () => void;
   onNextTrack: () => void;
@@ -60,6 +65,10 @@ export const MobileNowPlayingSheet: React.FC<MobileNowPlayingSheetProps> = ({
   repeatMode,
   isShuffle,
   isLiked,
+  playbackSpeed = 1.0,
+  onSpeedChange = () => {},
+  equalizerPreset = 'flat',
+  onPresetChange = () => {},
   onTogglePlay,
   onPrevTrack,
   onNextTrack,
@@ -141,32 +150,40 @@ export const MobileNowPlayingSheet: React.FC<MobileNowPlayingSheetProps> = ({
             }}
           />
 
-          {/* TOP BAR: Chevron Down & Title & Actions */}
-          <div className="relative z-20 flex items-center justify-between px-4 pt-safe pt-2 pb-1 shrink-0">
+          {/* TOP BAR: Chevron Down & Title & Advanced Controls */}
+          <div className="relative z-20 flex items-center justify-between px-3 pt-safe pt-2 pb-1 shrink-0 gap-2">
             <button
               onClick={onClose}
-              className="p-2 -ml-1 rounded-full text-slate-300 hover:text-white active:scale-90 transition-transform"
+              className="p-2 -ml-1 rounded-full text-slate-300 hover:text-white active:scale-90 transition-transform shrink-0"
               aria-label="Minimize player"
             >
               <ChevronDown className="w-7 h-7" />
             </button>
 
-            <div className="flex flex-col items-center pointer-events-none">
-              <span className="text-[10px] uppercase font-bold tracking-widest font-mono opacity-60">
+            <div className="flex flex-col items-center pointer-events-none min-w-0 flex-1">
+              <span className="text-[9px] uppercase font-bold tracking-widest font-mono opacity-60">
                 NOW PLAYING
               </span>
-              <span className="text-xs font-semibold truncate max-w-[180px] opacity-90">
+              <span className="text-xs font-semibold truncate max-w-[140px] opacity-90">
                 {currentTrack.album || 'YouTube Music'}
               </span>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
+              <AdvancedPlaybackControls
+                playbackSpeed={playbackSpeed}
+                onSpeedChange={onSpeedChange}
+                equalizerPreset={equalizerPreset}
+                onPresetChange={onPresetChange}
+                isAudioOnly={true}
+                className="scale-90 origin-right"
+              />
               <button
                 onClick={onOpenEqualizer}
-                className="p-2 rounded-full text-slate-300 hover:text-white active:scale-90 transition-transform"
+                className="p-1.5 rounded-full text-slate-300 hover:text-white active:scale-90 transition-transform"
                 title="Audio Equalizer"
               >
-                <Sliders className="w-5 h-5" />
+                <Sliders className="w-4 h-4" />
               </button>
             </div>
           </div>

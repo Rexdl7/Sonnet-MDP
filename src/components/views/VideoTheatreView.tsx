@@ -102,9 +102,13 @@ export const VideoTheatreView: React.FC<VideoTheatreViewProps> = ({
       const res = await fetch(`/api/videos/trending?category=${cat}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.results && data.results.length > 0) {
-          setVideoResults(data.results);
-        }
+        const raw = data?.results;
+        const items = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+          ? raw.results
+          : [];
+        setVideoResults(items);
       }
     } catch {
       // fallback
@@ -134,10 +138,16 @@ export const VideoTheatreView: React.FC<VideoTheatreViewProps> = ({
       const res = await fetch(`/api/videos/search?q=${encodeURIComponent(queryToUse.trim())}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.results && data.results.length > 0) {
-          setVideoResults(data.results);
-          if (data.results.length === 1 && data.results[0].publishedAt === 'Now') {
-            handleSelectVideo(data.results[0]);
+        const raw = data?.results;
+        const items = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+          ? raw.results
+          : [];
+        if (items.length > 0) {
+          setVideoResults(items);
+          if (items.length === 1 && items[0].publishedAt === 'Now') {
+            handleSelectVideo(items[0]);
           } else {
             setViewMode('feed');
           }
@@ -155,12 +165,12 @@ export const VideoTheatreView: React.FC<VideoTheatreViewProps> = ({
       {/* --------------------------------------------------------------------------
           1. SonTube MOBILE & DESKTOP TOP HEADER (Red SonTube Logo + Search + Actions)
           -------------------------------------------------------------------------- */}
-      <header className="sticky top-0 z-30 bg-[#0F0F0F]/95 backdrop-blur-md px-3 md:px-6 py-2.5 flex items-center justify-between border-b border-white/10 gap-3">
-        <div className="flex items-center gap-2 shrink-0">
+      <header className="sticky top-0 z-30 bg-[#0F0F0F]/95 backdrop-blur-md px-2.5 sm:px-4 md:px-6 py-2 flex items-center justify-between border-b border-white/10 gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {viewMode === 'watch' && (
             <button
               onClick={() => setViewMode('feed')}
-              className="p-1.5 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-colors mr-1"
+              className="p-1.5 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-colors"
               title="Return to Video Feed"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -169,36 +179,36 @@ export const VideoTheatreView: React.FC<VideoTheatreViewProps> = ({
 
           <div 
             onClick={() => setViewMode('feed')} 
-            className="flex items-center gap-2 cursor-pointer group"
+            className="flex items-center gap-1.5 cursor-pointer group"
           >
-            <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl bg-red-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-transform">
-              <Youtube className="w-4 h-4 md:w-5 md:h-5 fill-white" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-red-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-transform">
+              <Youtube className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-sm md:text-base font-black tracking-tighter text-white font-mono">SonTube</span>
-              <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest font-sans">HD</span>
+              <span className="text-xs sm:text-base font-black tracking-tighter text-white font-mono">SonTube</span>
+              <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest font-sans hidden xs:inline">HD</span>
             </div>
           </div>
         </div>
 
         {/* Centered YouTube Web Search Bar with Live Autocomplete Suggestions */}
-        <div className="flex-1 max-w-lg relative mx-2">
-          <form onSubmit={(e) => handleSearchVideos(e)} className="flex items-center">
-            <div className="relative flex-1 flex items-center">
+        <div className="flex-1 min-w-0 max-w-lg relative mx-1 sm:mx-2">
+          <form onSubmit={(e) => handleSearchVideos(e)} className="flex items-center w-full">
+            <div className="relative flex-1 min-w-0 flex items-center">
               <input
                 type="text"
                 value={videoSearchQuery}
                 onChange={(e) => setVideoSearchQuery(e.target.value)}
                 onFocus={() => setIsVideoSearchFocused(true)}
                 onBlur={() => setTimeout(() => setIsVideoSearchFocused(false), 250)}
-                placeholder="Search SonTube videos..."
-                className="w-full pl-3.5 pr-8 py-1.5 md:py-2 rounded-l-full bg-[#121212] border border-white/15 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-red-500 transition-colors"
+                placeholder="Search videos..."
+                className="w-full pl-3 pr-7 py-1.5 rounded-l-full bg-[#1A1A1A] border border-white/15 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-red-500 transition-colors"
               />
               {videoSearchQuery && (
                 <button
                   type="button"
                   onClick={() => setVideoSearchQuery('')}
-                  className="absolute right-2.5 text-slate-400 hover:text-white text-xs font-bold"
+                  className="absolute right-2 text-slate-400 hover:text-white text-xs font-bold"
                 >
                   ✕
                 </button>
@@ -206,16 +216,16 @@ export const VideoTheatreView: React.FC<VideoTheatreViewProps> = ({
             </div>
             <button
               type="submit"
-              className="px-4 py-1.5 md:py-2 rounded-r-full bg-[#222222] hover:bg-[#303030] border border-l-0 border-white/15 text-white transition-all flex items-center justify-center shrink-0"
+              className="px-3 py-1.5 rounded-r-full bg-[#272727] hover:bg-[#353535] border border-l-0 border-white/15 text-white transition-all flex items-center justify-center shrink-0"
               title="Search YouTube"
             >
-              <Search className="w-4 h-4 text-slate-300" />
+              <Search className="w-3.5 h-3.5 text-slate-300" />
             </button>
           </form>
 
-          {/* Autocomplete Suggestions Dropdown */}
+          {/* Autocomplete Suggestions Dropdown - full width across mobile screen */}
           {isVideoSearchFocused && matchingVideoSuggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1.5 p-2 rounded-2xl bg-[#181818]/98 backdrop-blur-3xl border border-white/15 shadow-2xl z-50 space-y-1">
+            <div className="fixed sm:absolute top-14 sm:top-full left-2 right-2 sm:left-0 sm:right-0 mt-1 p-2 rounded-2xl bg-[#181818]/98 backdrop-blur-3xl border border-white/20 shadow-2xl z-50 space-y-1 max-h-72 overflow-y-auto">
               <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Trending Video Searches
               </div>
@@ -227,11 +237,11 @@ export const VideoTheatreView: React.FC<VideoTheatreViewProps> = ({
                     setIsVideoSearchFocused(false);
                     handleSearchVideos(undefined, suggestionText);
                   }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 cursor-pointer transition-colors text-xs text-slate-200 group"
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/10 cursor-pointer transition-colors text-xs text-slate-200 group active:bg-white/15"
                 >
                   <Search className="w-3.5 h-3.5 text-red-400 shrink-0" />
                   <span className="font-medium group-hover:text-white flex-1 truncate">{suggestionText}</span>
-                  <span className="text-[10px] text-slate-500 font-mono opacity-0 group-hover:opacity-100 transition-opacity">Search &crarr;</span>
+                  <span className="text-[10px] text-slate-500 font-mono opacity-0 sm:opacity-100 transition-opacity">Search &crarr;</span>
                 </div>
               ))}
             </div>

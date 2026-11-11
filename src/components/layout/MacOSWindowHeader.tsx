@@ -101,29 +101,29 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
 
   return (
     <header 
-      className="h-14 px-3 md:px-6 flex items-center justify-between shrink-0 select-none z-30 transition-all duration-300 relative backdrop-blur-[24px] bg-gradient-to-r from-black/70 via-[#121218]/75 to-black/70 border-b border-white/10 shadow-lg"
+      className="h-14 px-2 sm:px-4 md:px-6 flex items-center justify-between shrink-0 select-none z-30 transition-all duration-300 relative backdrop-blur-[24px] bg-gradient-to-r from-black/70 via-[#121218]/75 to-black/70 border-b border-white/10 shadow-lg gap-2"
       style={{
         color: theme?.colors.text || '#FFFFFF',
       }}
     >
       {/* Left: Compact Brand & Mode Switcher Segment */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <div 
           onClick={() => {
             if (onSearchChange) onSearchChange('');
             onSelectView('explore');
           }}
-          className="flex items-center gap-2 cursor-pointer group hover:opacity-90 active:scale-95 transition-all"
+          className="flex items-center gap-1.5 sm:gap-2 cursor-pointer group hover:opacity-90 active:scale-95 transition-all"
           title="Sonnetmdp Homepage"
         >
-          <SonnetLogo size={24} glow={themeId === 'youtube-music' || themeId === 'red-black'} />
-          <span className="text-xs md:text-sm font-black tracking-tight" style={{ color: theme?.colors.text || '#FFFFFF' }}>
+          <SonnetLogo size={22} glow={themeId === 'youtube-music' || themeId === 'red-black'} />
+          <span className="text-xs sm:text-sm font-black tracking-tight" style={{ color: theme?.colors.text || '#FFFFFF' }}>
             Sonnetmdp
           </span>
         </div>
 
-        {/* Top Header Mode Switcher Segment */}
-        <div className="flex items-center p-0.5 rounded-full bg-black/40 border border-white/10 text-xs shrink-0">
+        {/* Top Header Mode Switcher Segment - Hidden on narrow mobile to prioritize search & Sign-In */}
+        <div className="hidden sm:flex items-center p-0.5 rounded-full bg-black/40 border border-white/10 text-xs shrink-0">
           <button
             onClick={() => onSelectView('explore')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${
@@ -152,7 +152,7 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
       </div>
 
       {/* Center: Sleek Unified Search Bar with Instant Autocomplete Dropdown */}
-      <div className="flex-1 max-w-2xl mx-3 md:mx-6 relative">
+      <div className="flex-1 min-w-0 max-w-2xl mx-1 sm:mx-3 md:mx-6 relative">
         <form 
           onSubmit={(e) => {
             e.preventDefault();
@@ -199,7 +199,7 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
 
         {/* Instant Live Autocomplete Dropdown with YouTube Query Suggestions + Track Quick Play */}
         {isSearchFocused && (searchQuery.trim().length > 0 || matchingQuerySuggestions.length > 0) && (
-          <div className="absolute top-full left-0 right-0 mt-2 p-2 rounded-2xl bg-[#121216]/98 backdrop-blur-3xl border border-white/15 shadow-2xl z-50 space-y-2">
+          <div className="fixed sm:absolute top-14 sm:top-full left-2 right-2 sm:left-0 sm:right-0 mt-2 p-2.5 rounded-2xl bg-[#121216]/98 backdrop-blur-3xl border border-white/20 shadow-2xl z-50 space-y-2 max-h-80 overflow-y-auto">
             {/* YouTube-Style Autocomplete Search Query Suggestions */}
             {matchingQuerySuggestions.length > 0 && (
               <div className="space-y-0.5">
@@ -214,11 +214,11 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
                       setIsSearchFocused(false);
                       if (activeView !== 'search') onSelectView('search');
                     }}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 cursor-pointer transition-colors group text-xs text-slate-200"
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/10 cursor-pointer transition-colors group text-xs text-slate-200 active:bg-white/15"
                   >
                     <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-400 transition-colors shrink-0" />
                     <span className="font-medium group-hover:text-white flex-1 truncate">{queryText}</span>
-                    <span className="text-[10px] text-slate-500 font-mono opacity-0 group-hover:opacity-100 transition-opacity">Select &crarr;</span>
+                    <span className="text-[10px] text-slate-500 font-mono opacity-0 sm:opacity-100 transition-opacity">Select &crarr;</span>
                   </div>
                 ))}
               </div>
@@ -260,8 +260,8 @@ export const MacOSWindowHeader: React.FC<MacOSWindowHeaderProps> = ({
         )}
       </div>
 
-      {/* Right: Quick Action Controls */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      {/* Right: Quick Action Controls with guaranteed z-index and tap targets */}
+      <div className="relative z-30 flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Watch Video Mode Button */}
         <button
           onClick={() => onSelectView('video')}
